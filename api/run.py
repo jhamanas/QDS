@@ -14,6 +14,16 @@ from scenario_runner import run_scenario  # noqa: E402
 
 
 class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # Vercel may use the configured Python entrypoint as the root handler.
+        # Serve the static dashboard here as well as from dashboard.html so
+        # GET / never falls through to BaseHTTPRequestHandler's 501 response.
+        if self.path in ("/", "/index.html", "/dashboard.html"):
+            page = (ROOT / "dashboard.html").read_bytes()
+            self._send(200, page, "text/html; charset=utf-8")
+        else:
+            self._send(404, b"Not found", "text/plain")
+
     def do_OPTIONS(self):
         self._send(204, b"", "application/json")
 
