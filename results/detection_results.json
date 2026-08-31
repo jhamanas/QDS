@@ -1,0 +1,47 @@
+{
+  "config": {
+    "L": 64,
+    "channel_noise_p": 0.03,
+    "margin_std": 6.0
+  },
+  "intercept_resend_sweep": [
+    {
+      "intercept_prob": 0.05,
+      "detection_rate": 0.0,
+      "mean_mismatch_count": 1.07
+    },
+    {
+      "intercept_prob": 0.1,
+      "detection_rate": 0.0,
+      "mean_mismatch_count": 2.14
+    },
+    {
+      "intercept_prob": 0.25,
+      "detection_rate": 0.03,
+      "mean_mismatch_count": 5.1
+    },
+    {
+      "intercept_prob": 0.5,
+      "detection_rate": 0.59,
+      "mean_mismatch_count": 10.48
+    },
+    {
+      "intercept_prob": 0.75,
+      "detection_rate": 0.97,
+      "mean_mismatch_count": 15.9
+    },
+    {
+      "intercept_prob": 1.0,
+      "detection_rate": 1.0,
+      "mean_mismatch_count": 21.0
+    }
+  ],
+  "attack_detectability_summary": {
+    "intercept_resend_full": 1.0,
+    "blind_forgery": 1.0,
+    "intercepting_forgery": 0.0,
+    "impersonation": 0.0,
+    "naive_replay": 0.0,
+    "key_reuse": 0.0
+  }
+}
