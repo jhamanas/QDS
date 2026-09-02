@@ -19,8 +19,9 @@ to p=1/2, not the wrong 1/6).
 
 But Phase 4's detector does NOT use mismatch_threshold=0 in practice --
 it calibrates a nonzero threshold specifically so that honest runs
-experiencing realistic channel noise are not falsely rejected
-(detection/thresholds.py: threshold = ceil(mean + margin_std * std)).
+experiencing realistic channel noise are not falsely rejected. The
+operational policy selects the smallest binomial-tail threshold with a
+declared false-reject target (detection/thresholds.py).
 This is necessary and correct for noise tolerance, but it directly
 WEAKENS forgery resistance: a blind forger no longer needs every single
 qubit to match -- only "at most `threshold`" of them can mismatch. Since
@@ -34,16 +35,11 @@ Part 2: realistic-calibration parameter recommendation
 --------------------------------------------------------
 required_L_for_target_security (below) assumes a FIXED threshold
 fraction of L, which is a simplification. required_L_under_realistic_
-calibration goes further: it estimates the actual per-qubit mismatch
-rate from real baseline data, then uses a binomial approximation of
-Phase 4's OWN calibration formula to predict what threshold would
-actually be calibrated at any given L, and searches for the minimal L
-meeting a target forgery probability under THAT predicted threshold --
-consistent with how this codebase actually calibrates, not an
-independent policy. (Approximation validated once against a real
-calibration run in tests/test_security_analysis.py, not re-validated
-at every L searched -- re-simulating the real teleportation pipeline at
-every candidate L would be far too slow.)
+calibration directly evaluates the independent Pauli-noise binomial
+model at each candidate L, and searches for the minimal L meeting a
+target forgery probability under that operational threshold. The
+empirical baseline remains a diagnostic/validation tool rather than the
+source of the cutoff.
 
 Part 3: bounds for the non-QBER attacks (qualitative, not probabilistic)
 --------------------------------------------------------------------------
@@ -65,7 +61,11 @@ import numpy as np
 from core.qds_protocol import generate_key_material, distribute_public_key, sign_bit, verify_bit
 from core.noise import apply_depolarizing_noise
 from detection.baseline import collect_baseline
-from detection.thresholds import calibrate_threshold
+from detection.thresholds import (
+    DEFAULT_FALSE_REJECT_ALPHA,
+    binomial_tail_threshold,
+    calibrate_threshold,
+)
 from attacks.forgery import blind_forgery_attempt, INTERCEPT_FORGE_SUCCESS_PROB
 from attacks.impersonation import IMPERSONATION_SUCCESS_PROB
 from evaluation.validate_detection import sweep_intercept_resend_detection
@@ -154,39 +154,27 @@ def estimate_per_qubit_mismatch_rate(channel_noise_p: float, rng: np.random.Gene
                                       L_probe: int = 60, n_trials: int = 300) -> float:
     """
     Estimates the honest-run per-qubit mismatch rate under a given
-    channel noise level, from one real baseline collection (real
-    teleportation + depolarizing-noise simulation). Reused by
-    predicted_threshold() to approximate calibration behavior at other
-    values of L without re-simulating at each one.
+    channel noise level from a real baseline collection. This remains a
+    diagnostic for checking the simulation against q = 2p/3; it does not
+    set the operational threshold.
     """
     baseline = collect_baseline(L=L_probe, n_trials=n_trials,
                                  channel_noise_p=channel_noise_p, rng=rng)
     return baseline["mean_mismatch_rate"]
 
 
-def predicted_threshold(L: int, mean_mismatch_rate: float, margin_std: float = 6.0,
-                         min_margin_count: int = 1) -> int:
+def predicted_threshold(L: int, channel_noise_p: float,
+                        alpha: float = DEFAULT_FALSE_REJECT_ALPHA) -> int:
     """
-    Approximates what detection.thresholds.calibrate_threshold would
-    produce at key-set size L, given a known per-qubit mismatch rate,
-    using the binomial approximation:
-
-        mean_mismatch_count(L) ~= mean_mismatch_rate * L
-        std_mismatch_count(L)  ~= sqrt(L * mean_mismatch_rate * (1 - mean_mismatch_rate))
-
-    Mirrors calibrate_threshold's own formula exactly (ceil(mean +
-    max(margin_std * std, min_margin_count)), capped at L).
+    Returns the exact operational binomial-tail threshold at key-set size L.
+    This supersedes the former mean/std extrapolation.
     """
-    mean = mean_mismatch_rate * L
-    std = math.sqrt(L * mean_mismatch_rate * (1 - mean_mismatch_rate))
-    margin = max(margin_std * std, min_margin_count)
-    threshold = math.ceil(mean + margin)
-    return min(threshold, L)
+    return binomial_tail_threshold(L, channel_noise_p, alpha)["mismatch_threshold"]
 
 
 def required_L_under_realistic_calibration(
     channel_noise_p: float, target_forge_prob: float, rng: np.random.Generator,
-    margin_std: float = 6.0, L_search_max: int = 3000,
+    alpha: float = DEFAULT_FALSE_REJECT_ALPHA, L_search_max: int = 3000,
 ) -> int | None:
     """
     Finds the smallest L such that a blind forger's success probability,
@@ -198,9 +186,8 @@ def required_L_under_realistic_calibration(
 
     Returns None if no L up to L_search_max achieves the target.
     """
-    mean_rate = estimate_per_qubit_mismatch_rate(channel_noise_p, rng)
     for L in range(1, L_search_max + 1):
-        threshold = predicted_threshold(L, mean_rate, margin_std=margin_std)
+        threshold = predicted_threshold(L, channel_noise_p, alpha=alpha)
         if analytic_blind_forge_success_prob(L, threshold) <= target_forge_prob:
             return L
     return None
@@ -210,8 +197,11 @@ def required_L_under_realistic_calibration(
 class SecurityReport:
     L: int
     channel_noise_p: float
-    margin_std: float
+    per_qubit_mismatch_probability: float
+    alpha: float
     calibrated_threshold: int
+    actual_binomial_false_reject_probability: float
+    threshold_equals_L: bool
     baseline_mean_mismatch_count: float
     empirical_false_reject_rate: float
     blind_forge_prob_at_threshold: float
@@ -225,14 +215,14 @@ class SecurityReport:
 
 def generate_security_report(
     L: int, channel_noise_p: float, rng: np.random.Generator,
-    margin_std: float = 6.0, n_calibration_trials: int = 150,
+    alpha: float = DEFAULT_FALSE_REJECT_ALPHA, n_calibration_trials: int = 150,
     n_holdout_trials: int = 100,
     intercept_probs: tuple[float, ...] = (0.1, 0.25, 0.5, 0.75, 1.0),
     n_attack_trials: int = 60,
 ) -> SecurityReport:
     """
     Produces a single consolidated SecurityReport for a candidate
-    deployment configuration (L, channel_noise_p, margin_std): the real
+    deployment configuration (L, channel_noise_p, alpha): the real
     calibrated threshold and its false-reject rate, the corrected
     forgery bounds evaluated at that real threshold, the L-independent
     intercepting-forgery and impersonation constants, an eavesdropping
@@ -241,7 +231,7 @@ def generate_security_report(
     """
     baseline = collect_baseline(L=L, n_trials=n_calibration_trials,
                                  channel_noise_p=channel_noise_p, rng=rng)
-    calib = calibrate_threshold(baseline, margin_std=margin_std)
+    calib = calibrate_threshold(baseline, alpha=alpha)
     threshold = calib["mismatch_threshold"]
 
     accepted = 0
@@ -262,18 +252,21 @@ def generate_security_report(
     sweep_points = sweep_intercept_resend_detection(
         L=L, channel_noise_p=channel_noise_p, intercept_probs=intercept_probs,
         rng=rng, n_calibration_trials=n_calibration_trials, n_attack_trials=n_attack_trials,
-        margin_std=margin_std,
+        alpha=alpha,
     )
     detection_by_prob = {pt.intercept_prob: pt.detection_rate for pt in sweep_points}
 
-    rec_L_40 = required_L_under_realistic_calibration(channel_noise_p, 2 ** -40, rng, margin_std)
-    rec_L_64 = required_L_under_realistic_calibration(channel_noise_p, 2 ** -64, rng, margin_std)
+    rec_L_40 = required_L_under_realistic_calibration(channel_noise_p, 2 ** -40, rng, alpha)
+    rec_L_64 = required_L_under_realistic_calibration(channel_noise_p, 2 ** -64, rng, alpha)
 
     return SecurityReport(
         L=L,
         channel_noise_p=channel_noise_p,
-        margin_std=margin_std,
+        per_qubit_mismatch_probability=calib["per_qubit_mismatch_probability"],
+        alpha=alpha,
         calibrated_threshold=threshold,
+        actual_binomial_false_reject_probability=calib["actual_binomial_false_reject_probability"],
+        threshold_equals_L=calib["threshold_equals_L"],
         baseline_mean_mismatch_count=baseline["mean_mismatch_count"],
         empirical_false_reject_rate=false_reject_rate,
         blind_forge_prob_at_threshold=blind_at_threshold,

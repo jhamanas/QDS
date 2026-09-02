@@ -22,7 +22,7 @@ def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, thresh
         sig=session.sign(message_bit,payload)
         if attack in ("blind-forgery","intercepting-forgery"):
             legacy=blind_forgery_attempt(length,message_bit,rng) if attack=="blind-forgery" else intercepting_forgery_attempt(session.key_material,message_bit,rng)
-            sig=SecureSignature(sig.session_id,sig.signature_id,"alice","bob",message_bit,sig.payload_digest,tuple(legacy.disclosed_descriptions))
+            sig=SecureSignature(sig.session_id,sig.signature_id,"alice","bob",message_bit,sig.payload_digest,tuple(legacy.disclosed_descriptions),sig.opening_nonces)
         target=SecureVerifier("eve",{"alice":key}) if attack=="unauthorized-verification" else verifier
         result=target.verify(sig,payload+"-tampered" if attack=="payload-tamper" else payload,rng,threshold)
         if attack=="replay": result=verifier.verify(sig,payload,rng,threshold)

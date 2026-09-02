@@ -112,9 +112,10 @@ def benchmark_detection_pipeline(L_values: tuple[int, ...], channel_noise_p: flo
     Times detection.baseline.collect_baseline (which itself runs
     n_baseline_trials full honest protocol cycles) and
     detection.thresholds.calibrate_threshold at each L. Calibration
-    itself is O(1) arithmetic on already-collected summary statistics,
-    so it should be roughly constant regardless of L -- included mainly
-    as a contrast to baseline collection's expected linear growth.
+    itself evaluates exact binomial tails over the possible mismatch counts,
+    so it is small at the demonstration sizes used here but is not assumed
+    to be constant-time. It is included mainly as a contrast to baseline
+    collection's expected linear growth.
     """
     results = []
     for L in L_values:
@@ -122,7 +123,7 @@ def benchmark_detection_pipeline(L_values: tuple[int, ...], channel_noise_p: flo
         baseline = collect_baseline(L=L, n_trials=n_baseline_trials,
                                      channel_noise_p=channel_noise_p, rng=rng)
         t1 = time.perf_counter()
-        calibrate_threshold(baseline, margin_std=6.0)
+        calibrate_threshold(baseline)
         t2 = time.perf_counter()
 
         results.append(DetectionPipelineTiming(

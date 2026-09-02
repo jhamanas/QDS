@@ -55,8 +55,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.qds_protocol import generate_key_material, distribute_public_key, sign_bit, verify_bit
+from core.noise import apply_depolarizing_noise
 from detection.baseline import collect_baseline
-from detection.thresholds import calibrate_threshold
+from detection.thresholds import DEFAULT_FALSE_REJECT_ALPHA, calibrate_threshold
 from attacks.intercept_resend import intercept_resend_attack
 from attacks.forgery import blind_forgery_attempt, intercepting_forgery_attempt
 from attacks.impersonation import impersonation_attack
@@ -71,19 +72,33 @@ class SweepPoint:
     mean_mismatch_count: float
 
 
-def run_intercept_resend_trial(L: int, intercept_prob: float, rng: np.random.Generator) -> int:
+def run_intercept_resend_trial(
+    L: int,
+    intercept_prob: float,
+    rng: np.random.Generator,
+    channel_noise_p: float = 0.0,
+) -> int:
     """
     Runs one full honest-protocol-plus-attack cycle: fresh key material,
     distribution, intercept-resend attack at the given intensity, then
     HONEST signing (Alice truthfully discloses her real key set -- the
     attack only touched the channel, not Alice's disclosure) and
-    verification at mismatch_threshold=0 to observe the raw
+    then applies the configured ordinary depolarizing channel to Bob's
+    disclosed-key-set qubits before verification. This matches
+    detection.baseline.run_honest_trial(): the channel acts on the
+    post-distribution state Bob holds, after Eve's resend in an attacked
+    trial, rather than being added artificially to the final mismatch
+    count. Verification uses mismatch_threshold=0 to observe the raw
     (uncalibrated) mismatch count this attack intensity produces.
     """
     km = generate_key_material(L, rng)
     distribute_public_key(km, rng)
     intercept_resend_attack(km, rng, intercept_prob=intercept_prob)
     sig = sign_bit(km, message_bit=0)
+    for kq in km.key_set_0:
+        kq.bob_state = apply_depolarizing_noise(
+            kq.bob_state, channel_noise_p, target=0, n_qubits=1, rng=rng
+        )
     result = verify_bit(km, sig, rng, mismatch_threshold=0)
     return result.mismatch_count
 
@@ -95,7 +110,7 @@ def sweep_intercept_resend_detection(
     rng: np.random.Generator,
     n_calibration_trials: int = 150,
     n_attack_trials: int = 100,
-    margin_std: float = 6.0,
+    alpha: float = DEFAULT_FALSE_REJECT_ALPHA,
 ) -> list[SweepPoint]:
     """
     Calibrates a detection threshold ONCE from an honest baseline (at
@@ -109,12 +124,15 @@ def sweep_intercept_resend_detection(
     """
     baseline = collect_baseline(L=L, n_trials=n_calibration_trials,
                                  channel_noise_p=channel_noise_p, rng=rng)
-    calib = calibrate_threshold(baseline, margin_std=margin_std)
+    calib = calibrate_threshold(baseline, alpha=alpha)
     threshold = calib["mismatch_threshold"]
 
     points = []
     for p in intercept_probs:
-        mismatch_counts = [run_intercept_resend_trial(L, p, rng) for _ in range(n_attack_trials)]
+        mismatch_counts = [
+            run_intercept_resend_trial(L, p, rng, channel_noise_p)
+            for _ in range(n_attack_trials)
+        ]
         flagged = sum(1 for m in mismatch_counts if m > threshold)
         points.append(SweepPoint(
             intercept_prob=p,
@@ -138,7 +156,7 @@ def minimum_detectable_intercept_prob(
 
 
 def attack_detectability_summary(L: int, channel_noise_p: float, rng: np.random.Generator,
-                                  margin_std: float = 6.0, n_calibration_trials: int = 150,
+                                  alpha: float = DEFAULT_FALSE_REJECT_ALPHA, n_calibration_trials: int = 150,
                                   n_trials_per_attack: int = 50) -> dict[str, float]:
     """
     Calibrates a detector once, then runs every Phase 5 attack (full
@@ -160,14 +178,17 @@ def attack_detectability_summary(L: int, channel_noise_p: float, rng: np.random.
     """
     baseline = collect_baseline(L=L, n_trials=n_calibration_trials,
                                  channel_noise_p=channel_noise_p, rng=rng)
-    threshold = calibrate_threshold(baseline, margin_std=margin_std)["mismatch_threshold"]
+    threshold = calibrate_threshold(baseline, alpha=alpha)["mismatch_threshold"]
 
     def flagged_fraction(mismatch_counts: list[int]) -> float:
         return sum(1 for m in mismatch_counts if m > threshold) / len(mismatch_counts)
 
     # Intercept-resend (full interception) -- the one attack that SHOULD
     # be flagged frequently.
-    ir_counts = [run_intercept_resend_trial(L, 1.0, rng) for _ in range(n_trials_per_attack)]
+    ir_counts = [
+        run_intercept_resend_trial(L, 1.0, rng, channel_noise_p)
+        for _ in range(n_trials_per_attack)
+    ]
 
     # Blind forgery -- only counts trials where the forgery was accepted
     # (mismatch_count <= threshold by definition of acceptance at small

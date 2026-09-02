@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from detection.baseline import collect_baseline
-from detection.thresholds import calibrate_threshold
+from detection.thresholds import DEFAULT_FALSE_REJECT_ALPHA, calibrate_threshold
 from evaluation.security_analysis import (
     analytic_blind_forge_success_prob, empirical_blind_forge_success_rate,
     threshold_forgery_tradeoff, required_L_for_target_security,
@@ -34,7 +34,6 @@ def check(name, condition):
 
 
 CHANNEL_NOISE_P = 0.03
-MARGIN_STD = 6.0
 
 # ---------------------------------------------------------------------------
 # 1. Threshold/forgery tradeoff: analytic formula matches empirical
@@ -88,8 +87,8 @@ if L_needed_slack is not None:
           prob_at_L_minus_1 > 2 ** -20)
 
 # ---------------------------------------------------------------------------
-# 4. predicted_threshold's binomial approximation should be close to what
-#    a REAL calibration run actually produces.
+# 4. The exact operational threshold is independent of finite baseline
+#    sampling; the baseline remains a diagnostic of q = 2p/3.
 # ---------------------------------------------------------------------------
 mean_rate = estimate_per_qubit_mismatch_rate(CHANNEL_NOISE_P, rng, L_probe=60, n_trials=400)
 check(f"estimated per-qubit mismatch rate is positive and well below 1 "
@@ -97,27 +96,27 @@ check(f"estimated per-qubit mismatch rate is positive and well below 1 "
 
 for L_check in (40, 80):
     real_baseline = collect_baseline(L=L_check, n_trials=300, channel_noise_p=CHANNEL_NOISE_P, rng=rng)
-    real_calib = calibrate_threshold(real_baseline, margin_std=MARGIN_STD)
+    real_calib = calibrate_threshold(real_baseline)
     real_threshold = real_calib["mismatch_threshold"]
-    approx_threshold = predicted_threshold(L_check, mean_rate, margin_std=MARGIN_STD)
-    check(f"predicted_threshold(L={L_check}) is close to a real calibration run "
-          f"(predicted={approx_threshold}, real={real_threshold})",
-          abs(approx_threshold - real_threshold) <= 3)
+    exact_threshold = predicted_threshold(L_check, CHANNEL_NOISE_P)
+    check(f"predicted_threshold(L={L_check}) matches exact calibration "
+          f"(predicted={exact_threshold}, real={real_threshold})",
+          exact_threshold == real_threshold)
 
-edge_threshold = predicted_threshold(L=10, mean_mismatch_rate=0.9, margin_std=6.0)
-check("predicted_threshold caps at L even for a very high mismatch rate",
-      edge_threshold == 10)
+edge_threshold = predicted_threshold(L=10, channel_noise_p=1.0, alpha=0.5)
+check("predicted_threshold remains within [0, L] at maximum channel noise",
+      0 <= edge_threshold <= 10)
 
-zero_rate_threshold = predicted_threshold(L=20, mean_mismatch_rate=0.0, margin_std=6.0)
-check("predicted_threshold applies min_margin_count when rate is zero (degenerate case)",
-      zero_rate_threshold == 1)
+zero_rate_threshold = predicted_threshold(L=20, channel_noise_p=0.0)
+check("predicted_threshold is zero for zero channel noise",
+      zero_rate_threshold == 0)
 
 # ---------------------------------------------------------------------------
 # 5. required_L_under_realistic_calibration: larger L needed for a
 #    tighter target; exceeds the naive threshold=0 estimate.
 # ---------------------------------------------------------------------------
-L_loose = required_L_under_realistic_calibration(CHANNEL_NOISE_P, 2 ** -20, rng, MARGIN_STD)
-L_tight = required_L_under_realistic_calibration(CHANNEL_NOISE_P, 2 ** -40, rng, MARGIN_STD)
+L_loose = required_L_under_realistic_calibration(CHANNEL_NOISE_P, 2 ** -20, rng)
+L_tight = required_L_under_realistic_calibration(CHANNEL_NOISE_P, 2 ** -40, rng)
 check(f"tighter forgery target needs a larger (or equal) L "
       f"(2^-20 -> L={L_loose}, 2^-40 -> L={L_tight})",
       L_loose is not None and L_tight is not None and L_tight >= L_loose)
@@ -130,13 +129,16 @@ check(f"required L for 2^-40 under realistic calibration exceeds the naive "
 # 6. generate_security_report: end-to-end sanity check.
 # ---------------------------------------------------------------------------
 report = generate_security_report(
-    L=40, channel_noise_p=CHANNEL_NOISE_P, rng=rng, margin_std=MARGIN_STD,
+    L=40, channel_noise_p=CHANNEL_NOISE_P, rng=rng, alpha=DEFAULT_FALSE_REJECT_ALPHA,
     n_calibration_trials=120, n_holdout_trials=80,
     intercept_probs=(0.25, 0.5, 1.0), n_attack_trials=50,
 )
 
 check("report calibrated_threshold is non-negative and <= L",
       0 <= report.calibrated_threshold <= report.L)
+check("report exposes the binomial calibration model and tail probability",
+      np.isclose(report.per_qubit_mismatch_probability, 2 * CHANNEL_NOISE_P / 3)
+      and report.actual_binomial_false_reject_probability <= report.alpha)
 check(f"report false-reject rate is low (got {report.empirical_false_reject_rate:.3f})",
       report.empirical_false_reject_rate <= 0.10)
 check("blind forgery prob at calibrated threshold exceeds the threshold=0 bound",

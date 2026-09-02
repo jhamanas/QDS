@@ -215,10 +215,11 @@ def verify_bit(key_material: SingleBitKeyMaterial, signature: SignatureBit,
         if key_qubit.bob_state is None:
             raise ValueError("Public key has not been distributed yet (bob_state is None). "
                               "Call distribute_public_key first.")
-        measured_outcome, _ = measure_qubit_in_basis(
-            key_qubit.bob_state.copy(), target=0, n_qubits=1,
+        measured_outcome, collapsed_state = measure_qubit_in_basis(
+            key_qubit.bob_state, target=0, n_qubits=1,
             basis=disclosed_basis, rng=rng
         )
+        key_qubit.bob_state = collapsed_state
         per_qubit_outcomes.append((measured_outcome, disclosed_eigen))
         if measured_outcome != disclosed_eigen:
             mismatch_count += 1
