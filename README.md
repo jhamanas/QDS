@@ -135,6 +135,23 @@ a durable mounted volume or a hosted database adapter before treating the public
 site as a security system. The simulation still creates a fresh demonstration
 session per request and does not provide real user authentication.
 
+### SOC audit and reporting endpoints
+
+Each dashboard API scenario now appends a redacted audit event: verdict, attack
+type, mismatch evidence, correlation IDs, and a SHA-256 payload digest. Payload
+contents and private key material are never stored. Events are hash chained and
+become HMAC-authenticated when `QDS_AUDIT_KEY` is configured.
+
+For a durable deployment, point `QDS_STATE_DB` at mounted or managed storage.
+The same ephemeral-Vercel warning applies to the audit chain. Available
+endpoints are `GET /api/health`, `GET /api/audit?limit=50`,
+`GET /api/analytics`, and `GET /api/reports/export?format=json|csv`.
+
+`POST /api/admin/reset` clears audit records only. It remains disabled until
+`QDS_ADMIN_TOKEN` is set and requires that value in `X-QDS-Admin-Token`.
+Cross-origin browser access is disabled by default; configure an exact
+`QDS_ALLOWED_ORIGIN` only for a separate trusted frontend.
+
 ## Delivery Table (Expected Deliverables)
 
 | Deliverable | Location | Status |

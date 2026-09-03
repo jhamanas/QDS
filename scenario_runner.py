@@ -1,5 +1,6 @@
 """Shared scenario execution used by the CLI and local dashboard."""
 from __future__ import annotations
+import hashlib
 import secrets
 import numpy as np
 from attacks.forgery import blind_forgery_attempt, intercepting_forgery_attempt
@@ -8,7 +9,7 @@ from attacks.unauthorized_verification import unauthorized_verification_attack
 from core.noise import apply_noise
 from core.secure_protocol import SecureSession, SecureSignature, SecureVerifier
 ATTACKS = ("honest", "intercept-resend", "blind-forgery", "intercepting-forgery", "impersonation", "replay", "key-reuse", "payload-tamper", "unauthorized-verification", "memory-tamper")
-def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, threshold=0, message_bit=0, payload="authorise-transfer:100", seed=7, state_store=None, noise_model="depolarizing"):
+def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, threshold=0, message_bit=0, payload="authorise-transfer:100", seed=7, state_store=None, audit_store=None, noise_model="depolarizing"):
     if attack not in ATTACKS: raise ValueError(f"Unknown attack: {attack}")
     if not 0 <= intensity <= 1 or not 0 <= noise <= 1 or threshold < 0 or length < 1: raise ValueError("intensity/noise must be in [0, 1]; threshold >= 0; length >= 1")
     if noise_model not in ("depolarizing", "bit-flip", "phase-flip"): raise ValueError("Unknown noise model")
@@ -40,5 +41,22 @@ def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, thresh
         if attack=="key-reuse":
             try: session.sign(1-message_bit,payload); data["key_reuse_prevented"]=False
             except ValueError: data["key_reuse_prevented"]=True
-    data.update({"accepted":result.accepted,"reason":result.reason,"mismatch_count":result.mismatch_count,"mismatch_threshold":result.mismatch_threshold,"mismatch_rate":result.mismatch_count/length})
+    data.update({"accepted":result.accepted,"reason":result.reason,"mismatch_count":result.mismatch_count,"mismatch_threshold":result.mismatch_threshold,"mismatch_rate":result.mismatch_count/length,
+                 # Correlation fields are safe to show in an investigation view;
+                 # the payload itself and all key material stay out of the log.
+                 "session_id": session.public_record.session_id,
+                 "signature_id": sig.signature_id if attack != "impersonation" else None,
+                 "payload_digest": hashlib.sha256(payload.encode("utf-8")).hexdigest()})
+    if audit_store is not None:
+        data["audit_event"] = audit_store.record_audit_event({
+            "attack": attack, "accepted": result.accepted, "reason": result.reason,
+            "length": length, "intensity": intensity, "noise": noise,
+            "noise_model": noise_model, "threshold": threshold,
+            "mismatch_count": result.mismatch_count,
+            "mismatch_threshold": result.mismatch_threshold,
+            "mismatch_rate": result.mismatch_count / length,
+            "session_id": session.public_record.session_id,
+            "signature_id": sig.signature_id if attack != "impersonation" else None,
+            "payload_digest": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+        })
     return data

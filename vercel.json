@@ -4,5 +4,12 @@
     "api/run.py": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/run?resource=health" },
+    { "source": "/api/audit", "destination": "/api/run?resource=audit" },
+    { "source": "/api/analytics", "destination": "/api/run?resource=analytics" },
+    { "source": "/api/reports/export", "destination": "/api/run?resource=report" },
+    { "source": "/api/admin/reset", "destination": "/api/run?resource=admin-reset" }
+  ]
 }

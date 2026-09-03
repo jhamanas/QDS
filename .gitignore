@@ -6,3 +6,4 @@ venv/
 .env.*
 .vercel/
 tests/_state_test.sqlite3
+*.sqlite3
