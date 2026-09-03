@@ -39,8 +39,20 @@ def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, thresh
             result=verifier.verify(sig,payload+"-tampered" if attack=="payload-tamper" else payload,rng,threshold)
         if attack=="replay": result=verifier.verify(sig,payload,rng,threshold)
         if attack=="key-reuse":
-            try: session.sign(1-message_bit,payload); data["key_reuse_prevented"]=False
-            except ValueError: data["key_reuse_prevented"]=True
+            try:
+                session.sign(1-message_bit,payload)
+                data["key_reuse_prevented"] = False
+            except ValueError:
+                data["key_reuse_prevented"] = True
+                # The first signature is a valid honest use. The scenario's
+                # security verdict is instead about the attempted *second*
+                # signing operation, which must be shown as prevented.
+                result = type(result)(
+                    False,
+                    "key reuse prevented: the initial signature was accepted and the second signing attempt was rejected",
+                    result.mismatch_count,
+                    result.mismatch_threshold,
+                )
     data.update({"accepted":result.accepted,"reason":result.reason,"mismatch_count":result.mismatch_count,"mismatch_threshold":result.mismatch_threshold,"mismatch_rate":result.mismatch_count/length,
                  # Correlation fields are safe to show in an investigation view;
                  # the payload itself and all key material stay out of the log.

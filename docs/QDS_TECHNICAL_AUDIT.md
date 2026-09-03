@@ -1,12 +1,20 @@
-# Current implementation note
+# Historical audit and current implementation status
 
-The findings below preserve the original audit trail. Since that audit, the
-secure wrapper has been remediated with high-entropy per-qubit opening nonces,
-signer-issued verifier authorization (identity, expiry, HMAC integrity, and
-one-time use), optional SQLite replay state, Wilson acceptance intervals,
-alpha/beta parameter search, and benchmark memory/measurement reporting. The
-simulator remains educational and is not a formally proven or publicly
-verifiable QDS implementation.
+The findings below preserve the original audit trail and therefore describe
+the pre-remediation implementation in several sections. They must not be read
+as claims about the current checkout. The current implementation has:
+
+| Historical finding | Current status |
+|---|---|
+| Six-value commitment enumeration | Remediated with a secret 256-bit per-qubit opening nonce; regression-tested in `tests/test_secure_protocol.py`. This improves commitment hiding, but does not prove QDS unforgeability. |
+| `2p/3` noise correction | Implemented and documented in `core/noise.py`, `docs/protocol_math.md`, and the regenerated result provenance. |
+| Noise omitted from attack trials | Remediated: deterministic regeneration applies independent ordinary noise to both calibration and attack trials. |
+| Statevector consumption | Retained deliberately as a reusable simulator abstraction; its lifecycle limitation is documented, while secure-session IDs and verifier authorizations are consumed operationally. |
+
+The simulator remains educational and is not a formally proven, publicly
+verifiable, production QDS implementation. Historical statements below that
+say commitments are enumerable or attack trials omit noise refer only to the
+audited pre-remediation revision.
 
 # 1. Executive Summary
 

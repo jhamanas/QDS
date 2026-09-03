@@ -237,3 +237,36 @@ via `R²`. Measured `R² ≈ 0.99996` for total protocol time across
 `L ∈ {10, 20, 40, 80, 160, 320}` — see `results/performance_benchmark.csv`
 for the raw data and `results/security_analysis.md` Section 6 for a
 summary table.
+
+## 10. Secure-session commitments (`core/secure_protocol.py`)
+
+The hardened-session wrapper commits to each legacy `(basis, eigen)`
+description as:
+
+```
+C = SHA-256(canonical(session_id, set_index, qubit_index,
+                      basis, eigen, opening_nonce))
+```
+
+`opening_nonce` is generated with `secrets.token_hex(32)` and is a 256-bit
+value. The authenticated public distribution record contains `C`, but not the
+nonce. The signer discloses the matching nonce only when opening the selected
+key set in a `SecureSignature`; the verifier recomputes `C` before measuring.
+
+The former six-candidate enumeration over `(basis, eigen)` is therefore not
+sufficient to test a public commitment: a candidate also requires the unknown
+256-bit opening nonce. `tests/test_secure_protocol.py` verifies that the nonce
+is absent from the public record, legacy and fixed-nonce guesses do not open a
+commitment, valid openings verify, and altered openings fail. This is a
+computational commitment mechanism under SHA-256 and nonce-secrecy assumptions;
+it is not a proof of QDS unforgeability or public verification.
+
+## 11. State lifecycle boundary (`core/qds_protocol.py`)
+
+The base protocol is a reusable simulator abstraction. `verify_bit()` measures
+a copy of the stored statevector so tests can make repeated, controlled
+experiments; it does not claim to model physical qubit consumption. The
+hardened session layer consumes its signature ID and verifier authorization
+before measurement, preventing retries within its configured replay store.
+That operational control does not turn the statevector abstraction into a
+quantum-memory lifecycle model.

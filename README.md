@@ -201,24 +201,14 @@ Cross-origin browser access is disabled by default; configure an exact
 ## Regenerating `results/`
 
 ```bash
-python3 -c "
-import json, numpy as np
-from evaluation.validate_detection import sweep_intercept_resend_detection, attack_detectability_summary
-rng = np.random.default_rng(0)
-points = sweep_intercept_resend_detection(L=64, channel_noise_p=0.03,
-    intercept_probs=(0.05,0.1,0.25,0.5,0.75,1.0), rng=rng,
-    n_calibration_trials=200, n_attack_trials=100)
-summary = attack_detectability_summary(L=64, channel_noise_p=0.03, rng=rng,
-    n_calibration_trials=200, n_trials_per_attack=80)
-print(json.dumps({'sweep': [p.__dict__ for p in points], 'summary': summary}, indent=2))
-"
+python -m evaluation.regenerate_results
 ```
 
-and similarly for `evaluation.performance_benchmark.write_benchmark_csv`
-— see that module's docstrings for the full function signatures.
-
-For the supported, deterministic regeneration command and environment record,
-see `docs/reproducibility.md`.
+This deterministic command regenerates the detection, security, and benchmark
+artifacts and writes their commit, environment, seed, and SHA-256 provenance to
+`results/reproducibility.json`. It applies independent ordinary channel noise
+to both honest calibration and attack trials. See `docs/reproducibility.md`
+for the fixed configuration and interpretation boundaries.
 
 ## State lifecycle and security scope
 

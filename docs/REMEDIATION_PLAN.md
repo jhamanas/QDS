@@ -1,14 +1,19 @@
 # Remediation status (current branch)
 
-The following audit gaps are implemented: signer-issued verifier authorization
-(identity, expiry, HMAC integrity, and one-time use), dedicated unauthorized
-verification tests, optional atomic SQLite replay state via `QDS_STATE_DB`,
+The following audit gaps are implemented: high-entropy per-qubit commitment
+opening nonces, signer-issued verifier authorization (identity, expiry, HMAC
+integrity, and one-time use), dedicated authorization and commitment-opening
+tests, optional atomic SQLite replay state via `QDS_STATE_DB`, corrected
+`2p/3` noise modeling with noise applied to both calibration and attack trials,
 Wilson confidence intervals for acceptance evidence, an alpha/beta parameter
 search, and peak-memory/measurement-count fields in performance timings.
-The simulator remains explicitly educational; HMAC and SQLite are deployment
-controls, not information-theoretic security proofs. Vercel's `/tmp` storage is
-ephemeral, so production replay protection requires a durable database or
-mounted volume.
+
+The detailed sections below preserve the original findings. Any description of
+enumerable commitments or attack trials without ordinary noise is historical,
+not current behavior. The simulator remains explicitly educational; HMAC and
+SQLite are deployment controls, not information-theoretic security proofs.
+Vercel's `/tmp` storage is ephemeral, so production replay protection requires
+a durable database or mounted volume.
 
 # 1. Critical Issues
 

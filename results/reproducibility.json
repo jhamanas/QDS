@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-09-03T10:54:48.863416+00:00",
-  "git_commit": "5ae7921aa3a58ced933806221fa7fb7018c10cc2",
+  "generated_at_utc": "2026-09-03T12:14:07.603403+00:00",
+  "git_commit": "a6560f1ac0a180e5ca0a2a50671572da75db1fc3",
   "git_worktree_dirty": true,
-  "python_version": "3.12.13 (main, Aug  7 2026, 02:26:41) [MSC v.1944 64 bit (AMD64)]",
-  "numpy_version": "2.3.5",
+  "python_version": "3.14.5 (tags/v3.14.5:5607950, May 10 2026, 10:43:50) [MSC v.1944 64 bit (AMD64)]",
+  "numpy_version": "2.5.2",
   "operating_system": "Windows-11-10.0.26200-SP0",
   "machine": "AMD64",
   "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
@@ -16,7 +16,7 @@
       "sha256": "05313a71568f2d331504aa726baca822953fa0357848d0c09ae207ce7c54dfdf"
     },
     "performance_benchmark.csv": {
-      "sha256": "7b1a71a68f5f52f691ba53c161d668935674bc64808cf4c60a1c86ad6ae2e4cd"
+      "sha256": "921af29b0e31775a9ab48ee6f45b9f21dc3345a8b27913134fbc3ba185436317"
     }
   }
 }

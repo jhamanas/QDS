@@ -1,126 +1,106 @@
 # Final Report — Quantum-Inspired Threat Detection Framework
 
-## What this project is
+## Scope
 
-A from-scratch quantum statevector simulator, a teleportation-based
-Quantum Digital Signature (QDS) scheme built on top of it, a
-statistical detector for channel disturbance, four attack simulators,
-and a full evaluation of what the detector can and can't catch — plus
-performance characterization and complete documentation. Built across
-nine phases (see `docs/architecture.md` for the module-by-module map),
-0 through 8 in code, 9 in documentation.
+This repository is an educational quantum-inspired simulation and evaluation
+framework. It implements a small NumPy statevector simulator, ideal
+teleportation, a one-bit QDS-inspired disclosure model, stochastic Pauli-noise
+experiments, a mismatch-count (QBER) detector, attack scenarios, and a local
+dashboard. It is not a complete, standardized, production-ready, or formally
+secure Quantum Digital Signature implementation.
 
-## Headline results
+The project deliberately distinguishes two layers:
 
-**1. Two forgery-bound corrections, both empirically driven.**
-The original design assumed a blind forger succeeds with probability
-1/6 per qubit. Building the actual forgery simulator (Phase 5) revealed
-this was wrong: the real per-qubit probability is **1/2**, because
-`verify_bit` checks a disclosure's internal consistency against Bharat's
-physical qubit, not against Aditi's true secret basis directly — a
-wrong basis guess isn't an automatic failure, since a mismatched-basis
-measurement is still 50/50. A second, more serious result followed from
-the same reasoning error appearing in my own first draft of the
-stronger "intercepting forger" simulator: an attacker with physical
-access to Bharat's stored qubits forges with **probability 1.0,
-independent of L** — verification always measures in the *disclosed*
-basis, so measuring once and reporting honestly always passes.
+- `core/qds_protocol.py` is the legacy simulator model used for the
+  attack/detection experiments.
+- `core/secure_protocol.py` adds operational controls for dashboard scenarios:
+  nonce-based commitments, HMAC-authenticated distribution records, payload
+  binding, verifier authorization, and one-time replay controls.
 
-**2. Two more total breaks, found completing Phase 5.**
-Impersonation (an attacker running the entire honest protocol under
-Aditi's name, since nothing binds the distribution session to her
-identity) and replay/key-reuse (no freshness check exists, and
-Lamport-style one-time-key violation exposes 100% of the private key)
-are both certain, L-independent breaks — matching a warning already
-present in the original Phase 3 docstring that hadn't yet been acted
-on.
+HMAC is a shared-secret authenticated-channel stand-in; it is not a public
+digital signature and does not establish transferability or non-repudiation.
 
-**3. The detector covers exactly one of five attack surfaces.**
-`evaluation/validate_detection.py`'s `attack_detectability_summary()`
-confirms empirically (not just by architectural argument) that only
-intercept-resend produces the kind of ongoing channel disturbance a
-QBER-based statistical test can see. The other four are unconditionally
-invisible — each produces `mismatch_count == 0` by construction, every
-time, regardless of L or calibration.
+## Current reproducible evaluation
 
-**4. Noise tolerance and forgery resistance trade off directly.**
-Calibrating a detection threshold that tolerates realistic channel
-noise (needed to avoid rejecting honest signatures) simultaneously
-weakens the blind-forger bound by roughly ten orders of magnitude at a
-representative configuration (L=64, noise=0.03: `(1/2)^64 ≈ 5.4×10⁻²⁰`
-at threshold=0 vs. `2.8×10⁻¹⁰` at the actually-calibrated threshold=8).
+Run `python -m evaluation.regenerate_results` from the repository root to
+produce the checked-in evaluation artifacts. The fixed evaluation uses
+`L=64`, channel-noise probability `p=0.03`, seed `20260903`, 200 calibration
+trials, and 100 attack trials. The command records the commit, environment,
+artifact hashes, and seed in `results/reproducibility.json`.
 
-**5. Recommended L is roughly double the naive estimate.**
-Accounting for how the threshold itself grows with L under realistic
-calibration, reaching 2⁻⁴⁰ blind-forgery resistance at p=0.03 channel
-noise requires **L≈78–81**, not the L=40 the uncorrected `(1/2)^L`
-bound alone would suggest.
+The stochastic Pauli channel gives a same-basis mismatch probability of
+`2p/3`; at `p=0.03` this is `0.02`. Independent ordinary channel noise is
+applied to both honest calibration and attack trials, so the reported sweep is
+for the combined noise-plus-attack condition.
 
-**6. The implementation is fast and scales as expected.**
-Every protocol stage is linear in L (R²≈0.9999+ fit quality), and
-practical at the recommended L — tens of milliseconds per sign/verify
-cycle.
+The regenerated `results/security_analysis.json` reports, for this reference
+configuration:
 
-## How the project was actually built
+| Measure | Value |
+|---|---:|
+| Calibrated mismatch threshold | 9 |
+| Binomial honest false-reject bound | 5.78 × 10⁻⁷ |
+| Blind-forgery acceptance bound at threshold 0 | 5.42 × 10⁻²⁰ |
+| Blind-forgery acceptance bound at threshold 9 | 1.77 × 10⁻⁹ |
+| Recommended legacy-model `L` for a 2⁻⁴⁰ target | 81 |
 
-Every phase's headline finding came from writing the code and running
-it against real simulated trials, not from deriving formulas on paper
-first. Three examples worth naming explicitly, because they shaped how
-much to trust any single analytic claim in this codebase:
+These are simulation/model results, not deployment security parameters. In
+particular, increasing `L` does not address attacks outside the legacy
+disclosure model.
 
-- The 1/6→1/2 forgery correction was caught only because the forgery
-  simulator's own test asserted the wrong bound and failed against real
-  `verify_bit` output.
-- My own first draft of the intercepting-forger docstring made the
-  *same category of reasoning error* the original 1/6 bug did (assuming
-  verification checks against Aditi's secret basis), and was itself
-  caught the same way — empirical trial, not re-reading the derivation
-  more carefully.
-- `evaluation/validate_detection.py`'s first version claimed blind
-  forgery should be *invisible* to the QBER detector like the other
-  three non-channel attacks; the actual test run showed a 100%
-  detection rate, because most forgery attempts simply produce mismatch
-  counts high enough to look like noise. The fix wasn't to adjust the
-  assertion until it passed — it was to recognize that "detected" and
-  "rejected" are the literal same check for forgery, and that this
-  number therefore isn't independent evidence of anything the `(1/2)^L`
-  bound didn't already say.
+## What the detector does—and does not—detect
 
-The pattern across all three: the empirical check is what corrects
-analytic mistakes, including in explanatory text written to justify a
-result that turned out to be the wrong result. Every claim in
-`docs/protocol_math.md` and `results/security_analysis.md` has a
-corresponding automated test that fails if the claim stops being true.
+The QBER detector measures channel disturbance. It is useful for the
+intercept-resend model, where the regenerated sweep at `p=0.03` detects 0%,
+15%, 81%, 99%, and 100% of trials at intercept fractions 0.10, 0.25, 0.50,
+0.75, and 1.00 respectively (100 trials per point; see
+`results/detection_results.json` for all points).
 
-## What's NOT covered
+It is not a general attack detector. A replay, an identity/authorization
+failure, or an attacker controlling a stored state can leave no ordinary
+channel-disturbance signal. In the hardened layer these are stopped by
+authorization, commitment, integrity, or replay controls rather than QBER.
+Blind-forgery rejection in the legacy model is also not an independent QBER
+capability: a bad disclosure simply yields a high mismatch count.
 
-- **No density-matrix simulation.** Noise is modeled via Monte-Carlo
-  Pauli-error sampling on pure states (`core/noise.py`), not a true
-  mixed-state formalism. Sufficient for this project's statistics, but
-  not a substitute for a density-matrix treatment if finer-grained
-  channel models are ever needed.
-- **No multi-bit message signing.** `core/qds_protocol.py` signs one
-  bit at a time; a real message would need this composed bit-by-bit
-  (or replaced with a multi-bit generalization), which was out of scope
-  here.
-- **No defenses were implemented for intercepting forgery,
-  impersonation, or replay/key-reuse** — only characterized. Each
-  requires a mechanism outside this codebase's scope (physical channel
-  security, an authenticated distribution channel, and deployment-level
-  key/session tracking, respectively) — see `results/security_analysis.md`
-  Section 5 for the explicit list.
-- **`evaluation/security_analysis.py`'s realistic-calibration L search
-  uses an approximation** (a binomial scaling model fit from one real
-  baseline), not a re-simulation at every candidate L — validated once
-  against real calibration at two L values, not continuously.
+## Commitment and state-lifecycle position
 
-## Where to look for more detail
+Each secure-session commitment includes a secret, per-qubit 256-bit opening
+nonce. The nonce is not present in the public distribution record, is revealed
+only with a selected signature opening, and is checked before state
+measurement. Tests cover the former six-candidate enumeration regression,
+valid openings, and tampered openings. This prevents the former low-entropy
+enumeration shortcut under the SHA-256/nonce-secrecy assumptions; it does not
+constitute a QDS security proof.
 
-| Question | See |
+The base statevector model remains reusable by design: it measures a copy of a
+stored state so experiments can be repeated. It therefore does not model
+physical quantum-state consumption. The hardened session consumes signature
+and authorization identifiers before verification, which provides operational
+replay protection within its configured state store but does not change that
+simulation boundary.
+
+## Verification and operational checks
+
+The full script-style suite is run from the repository root with:
+
+```powershell
+Get-ChildItem tests/test_*.py | ForEach-Object { python $_.FullName }
+```
+
+It includes primitives, teleportation, protocol, detector, attack, noise,
+metrics, secure-session, authorization, memory-tamper, state-store, SOC/audit,
+security-analysis, and performance checks. The dashboard is exercised against
+honest, intercept-resend, blind-forgery, replay, and key-reuse scenarios; its
+result view distinguishes a prevented key-reuse attempt from the valid initial
+signature.
+
+## Further reading
+
+| Topic | Location |
 |---|---|
-| How is the code organized? | `docs/architecture.md` |
-| Where do the formulas come from? | `docs/protocol_math.md` |
-| What are the actual security numbers? | `results/security_analysis.md` |
-| Raw sweep/detectability data | `results/detection_results.json` |
-| Raw timing data | `results/performance_benchmark.csv` |
-| How do I run it? | `README.md` |
+| Architecture and module map | `docs/architecture.md`, `docs/CANONICAL_MODULES.md` |
+| Mathematical model and scope boundaries | `docs/protocol_math.md` |
+| Reproduction configuration and provenance | `docs/reproducibility.md` |
+| Generated detection and security data | `results/detection_results.json`, `results/security_analysis.json` |
+| Historical audit and remediation trail | `docs/QDS_TECHNICAL_AUDIT.md`, `docs/REMEDIATION_PLAN.md` |

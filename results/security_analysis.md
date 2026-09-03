@@ -1,5 +1,14 @@
 # Security Analysis — Quantum-Inspired Threat Detection Framework
 
+> **Historical phase narrative.** This Markdown report is retained for the
+> original legacy-model analysis and is not the current numerical source of
+> truth. Use `results/security_analysis.json`,
+> `results/detection_results.json`, and `results/reproducibility.json`, all
+> produced by `python -m evaluation.regenerate_results`, for the current
+> corrected-noise evaluation and its provenance. The hardened-session controls
+> are documented in `docs/final_report.md` and are not a proof of full QDS
+> security.
+
 **Scope:** the teleportation-based QDS scheme in `core/qds_protocol.py`, its
 statistical disturbance detector (`detection/`), the four attack classes
 simulated in `attacks/`, and their evaluation in `evaluation/`. This
