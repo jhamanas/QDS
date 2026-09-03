@@ -14,7 +14,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.qds_protocol import generate_key_material, distribute_public_key, sign_bit, verify_bit
 from core.noise import apply_depolarizing_noise
 from detection.baseline import run_honest_trial, collect_baseline
-from detection.thresholds import calibrate_threshold
+from detection.thresholds import (
+    DEFAULT_FALSE_REJECT_ALPHA,
+    binomial_survival_probability,
+    binomial_tail_threshold,
+    calibrate_threshold,
+)
 from detection.detector import verify_with_detection
 
 rng = np.random.default_rng(2024)
@@ -35,7 +40,7 @@ N_CALIBRATION_TRIALS = 120
 # ---------------------------------------------------------------------------
 # 1. core.noise.apply_depolarizing_noise basic sanity
 # ---------------------------------------------------------------------------
-from core.primitives import KET_0, is_normalized, state_fidelity
+from core.primitives import KET_0, is_normalized, measure_qubit_in_basis, state_fidelity
 
 no_noise = apply_depolarizing_noise(KET_0.copy(), p=0.0, target=0, n_qubits=1, rng=rng)
 check("p=0.0 never perturbs the state", np.isclose(state_fidelity(no_noise, KET_0), 1.0))
@@ -54,6 +59,16 @@ check(f"p=1.0 perturbs |0> on ~2/3 of trials (mean fidelity ~0.333, got {mean_fu
       0.25 < mean_full_noise_fidelity < 0.42)
 check("p=1.0 does perturb the state on at least some trials",
       any(f < 1.0 for f in full_noise_fidelities))
+
+full_noise_mismatches = 0
+for _ in range(600):
+    noisy_state = apply_depolarizing_noise(KET_0.copy(), p=1.0, target=0, n_qubits=1, rng=rng)
+    outcome, _ = measure_qubit_in_basis(noisy_state, target=0, n_qubits=1, basis="Z", rng=rng)
+    full_noise_mismatches += outcome != 0
+full_noise_mismatch_rate = full_noise_mismatches / 600
+check(f"p=1.0 same-basis mismatch rate is ~2/3 (got {full_noise_mismatch_rate:.3f})",
+      0.58 < full_noise_mismatch_rate < 0.75)
+
 check("noisy states remain normalized",
       all(is_normalized(apply_depolarizing_noise(KET_0.copy(), p=0.5, target=0, n_qubits=1, rng=rng))
           for _ in range(20)))
@@ -86,15 +101,68 @@ check("zero channel noise -> baseline mean/std are exactly zero "
 # ---------------------------------------------------------------------------
 # 3. Threshold calibration
 # ---------------------------------------------------------------------------
-calib = calibrate_threshold(baseline, margin_std=6.0)
-check(f"calibrated threshold ({calib['mismatch_threshold']}) is >= baseline mean "
-      f"({baseline['mean_mismatch_count']:.3f})",
-      calib["mismatch_threshold"] >= baseline["mean_mismatch_count"])
-check(f"calibrated threshold does not exceed L={L}", calib["mismatch_threshold"] <= L)
+calib = calibrate_threshold(baseline)
+threshold = calib["mismatch_threshold"]
+check("calibration reports the declared default alpha",
+      calib["alpha"] == DEFAULT_FALSE_REJECT_ALPHA)
+check(f"calibrated threshold lies in [0, L] (got {threshold})", 0 <= threshold <= L)
+check("calibration reports q = 2p/3",
+      np.isclose(calib["per_qubit_mismatch_probability"], 2 * CHANNEL_NOISE_P / 3))
+check("reported binomial false-reject probability meets alpha",
+      calib["actual_binomial_false_reject_probability"] <= DEFAULT_FALSE_REJECT_ALPHA)
 
-zero_noise_calib = calibrate_threshold(zero_noise_baseline, margin_std=6.0, min_margin_count=1)
-check("degenerate zero-std baseline still gets a nonzero margin (min_margin_count)",
-      zero_noise_calib["mismatch_threshold"] >= 1)
+zero_noise_calib = calibrate_threshold(zero_noise_baseline)
+check("zero channel noise calibrates to threshold zero",
+      zero_noise_calib["mismatch_threshold"] == 0)
+
+# Exact binomial-tail policy: each result must meet alpha and be minimal.
+for L_exact, p_exact, expected_threshold in ((20, .03, 6), (40, .03, 8),
+                                               (64, .03, 9), (80, .03, 10)):
+    exact = binomial_tail_threshold(L_exact, p_exact)
+    exact_threshold = exact["mismatch_threshold"]
+    q_exact = 2 * p_exact / 3
+    check(f"L={L_exact}, p={p_exact}: exact threshold is {expected_threshold}",
+          exact_threshold == expected_threshold)
+    check(f"L={L_exact}: selected tail probability meets alpha",
+          binomial_survival_probability(L_exact, q_exact, exact_threshold) <= DEFAULT_FALSE_REJECT_ALPHA)
+    check(f"L={L_exact}: selected threshold is minimal",
+          exact_threshold == 0 or
+          binomial_survival_probability(L_exact, q_exact, exact_threshold - 1) > DEFAULT_FALSE_REJECT_ALPHA)
+
+less_permissive = binomial_tail_threshold(40, .03, alpha=1e-8)["mismatch_threshold"]
+check("decreasing alpha cannot decrease the threshold", less_permissive >= 8)
+
+threshold_L = binomial_tail_threshold(1, 1.0, alpha=0.5)
+check("threshold == L is explicitly represented when all counts must be accepted",
+      threshold_L["mismatch_threshold"] == 1 and threshold_L["threshold_equals_L"]
+      and not threshold_L["mismatch_only_detection_possible"]
+      and threshold_L["actual_binomial_false_reject_probability"] == 0.0)
+
+empty_threshold = binomial_tail_threshold(0, .03)
+check("L=0 has the sensible zero threshold and zero survival probability",
+      empty_threshold["mismatch_threshold"] == 0
+      and empty_threshold["actual_binomial_false_reject_probability"] == 0.0)
+
+for invalid_alpha in (0.0, -1.0, 1.0, 2.0):
+    try:
+        binomial_tail_threshold(20, .03, alpha=invalid_alpha)
+        check(f"invalid alpha {invalid_alpha} is rejected", False)
+    except ValueError:
+        check(f"invalid alpha {invalid_alpha} is rejected", True)
+
+for invalid_p in (-0.01, 1.01):
+    try:
+        binomial_tail_threshold(20, invalid_p)
+        check(f"invalid channel noise p={invalid_p} is rejected", False)
+    except ValueError:
+        check(f"invalid channel noise p={invalid_p} is rejected", True)
+
+for invalid_q in (-0.01, 1.01):
+    try:
+        binomial_survival_probability(20, invalid_q, 1)
+        check(f"invalid direct q={invalid_q} is rejected", False)
+    except ValueError:
+        check(f"invalid direct q={invalid_q} is rejected", True)
 
 # ---------------------------------------------------------------------------
 # 4. verify_with_detection delegates correctly to verify_bit
@@ -106,7 +174,6 @@ km = generate_key_material(L, rng)
 distribute_public_key(km, rng)
 sig = sign_bit(km, message_bit=0)
 
-threshold = calib["mismatch_threshold"]
 direct_result = verify_bit(km, sig, rng, mismatch_threshold=threshold)
 # NOTE: verify_bit's own measurement is itself probabilistic in general
 # (measurement outcomes depend on rng), so to compare apples-to-apples we
@@ -145,7 +212,7 @@ check(f"held-out honest false-reject rate is low (got {false_reject_rate:.3f}, t
 #    NOTE: this depolarizing model only causes a measurement mismatch when
 #    the applied error is X or Y in the qubit's own preparation basis (a
 #    same-basis Z error is invisible to that basis's measurement), so the
-#    achievable mismatch rate caps out near 1/3 even at p=1.0. A larger
+#    achievable mismatch rate is 2/3 at p=1.0. A larger
 #    L is used here (40 instead of 20) purely to get enough qubits that
 #    the resulting mean mismatch count sits clearly above the calibrated
 #    threshold -- this is a property of the noise model's statistics, not
@@ -158,7 +225,7 @@ N_HIGH_NOISE = 50
 
 high_noise_baseline = collect_baseline(L=L_HIGH, n_trials=N_CALIBRATION_TRIALS,
                                         channel_noise_p=CHANNEL_NOISE_P, rng=rng)
-high_noise_calib = calibrate_threshold(high_noise_baseline, margin_std=6.0)
+high_noise_calib = calibrate_threshold(high_noise_baseline)
 high_noise_threshold = high_noise_calib["mismatch_threshold"]
 
 flagged = 0

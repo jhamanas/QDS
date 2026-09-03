@@ -33,7 +33,7 @@ def main() -> int:
         sig = session.sign(a.message_bit, a.payload)
         if a.attack in ("blind-forgery", "intercepting-forgery"):
             legacy = (blind_forgery_attempt(a.length, a.message_bit, rng) if a.attack == "blind-forgery" else intercepting_forgery_attempt(session.key_material, a.message_bit, rng))
-            sig = SecureSignature(sig.session_id, sig.signature_id, "alice", "bob", a.message_bit, sig.payload_digest, tuple(legacy.disclosed_descriptions))
+            sig = SecureSignature(sig.session_id, sig.signature_id, "alice", "bob", a.message_bit, sig.payload_digest, tuple(legacy.disclosed_descriptions), sig.opening_nonces)
         target = (SecureVerifier("eve", {"alice": alice_key})
                   if a.attack == "unauthorized-verification" else verifier)
         result = target.verify(sig, a.payload + "-tampered" if a.attack == "payload-tamper" else a.payload, rng, a.threshold)

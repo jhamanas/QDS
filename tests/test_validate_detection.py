@@ -12,9 +12,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evaluation.validate_detection import (
-    sweep_intercept_resend_detection, minimum_detectable_intercept_prob,
+    run_intercept_resend_trial, sweep_intercept_resend_detection, minimum_detectable_intercept_prob,
     attack_detectability_summary,
 )
+import evaluation.validate_detection as validate_detection
 
 rng = np.random.default_rng(2026)
 failures = []
@@ -28,7 +29,50 @@ def check(name, condition):
 
 
 # ---------------------------------------------------------------------------
-# 1. Intercept-resend detection sweep: detection rate should rise with
+# 1. Attack-trial noise path: p=0 retains the ideal intercept-resend
+# disturbance, while nonzero channel noise acts on the attacked states.
+# ---------------------------------------------------------------------------
+L_NOISE_PATH = 30
+N_NOISE_PATH_TRIALS = 120
+ideal_attack_mismatches = [
+    run_intercept_resend_trial(L_NOISE_PATH, 1.0, rng, channel_noise_p=0.0)
+    for _ in range(N_NOISE_PATH_TRIALS)
+]
+ideal_attack_rate = sum(ideal_attack_mismatches) / (L_NOISE_PATH * N_NOISE_PATH_TRIALS)
+check(f"channel_noise_p=0 preserves ideal full intercept-resend mismatch rate "
+      f"near 1/3 (got {ideal_attack_rate:.3f})",
+      abs(ideal_attack_rate - 1 / 3) < 0.06)
+
+noisy_attack_mismatches = [
+    run_intercept_resend_trial(L_NOISE_PATH, 1.0, rng, channel_noise_p=1.0)
+    for _ in range(N_NOISE_PATH_TRIALS)
+]
+noisy_attack_rate = sum(noisy_attack_mismatches) / (L_NOISE_PATH * N_NOISE_PATH_TRIALS)
+check(f"nonzero channel noise changes full intercept-resend measurements "
+      f"(p=0 rate={ideal_attack_rate:.3f}, p=1 rate={noisy_attack_rate:.3f})",
+      noisy_attack_rate > ideal_attack_rate + 0.10)
+
+observed_noise_probabilities = []
+real_apply_noise = validate_detection.apply_depolarizing_noise
+
+
+def record_attack_trial_noise(state, p, target, n_qubits, rng):
+    observed_noise_probabilities.append(p)
+    return real_apply_noise(state, p, target, n_qubits, rng)
+
+
+validate_detection.apply_depolarizing_noise = record_attack_trial_noise
+try:
+    run_intercept_resend_trial(7, 1.0, rng, channel_noise_p=0.23)
+finally:
+    validate_detection.apply_depolarizing_noise = real_apply_noise
+
+check("configured channel_noise_p is applied in the attack trial, not only baseline calibration",
+      observed_noise_probabilities == [0.23] * 7)
+
+
+# ---------------------------------------------------------------------------
+# 2. Intercept-resend detection sweep: detection rate should rise with
 #    intercept_prob, be low near 0.0 (should look like honest noise) and
 #    high near 1.0 (matches tests/test_attacks.py's single-point result).
 # ---------------------------------------------------------------------------
@@ -65,7 +109,7 @@ check(f"a 50%-detectable intercept_prob exists within the swept range (got {min_
       min_detectable is not None)
 
 # ---------------------------------------------------------------------------
-# 2. Attack detectability summary: confirms empirically which attacks
+# 3. Attack detectability summary: confirms empirically which attacks
 #    are UNCONDITIONALLY invisible to the QBER detector (always
 #    mismatch_count == 0, so flagging is impossible regardless of
 #    threshold) versus intercept_resend (genuinely, ongoingly disturbs

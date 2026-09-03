@@ -12,8 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.qds_protocol import (
     generate_key_material, distribute_public_key, sign_bit, verify_bit,
-    DEFAULT_BASES,
+    DEFAULT_BASES, SignatureBit,
 )
+from core.primitives import prepare_pauli_eigenstate, state_fidelity
 
 rng = np.random.default_rng(99)
 failures = []
@@ -116,7 +117,35 @@ check(f"All {n_trials} independent honest sign/verify trials are deterministic "
       f"(zero mismatches, always accepted)", all_deterministic)
 
 # ---------------------------------------------------------------------------
-# 6. Sanity check that verification is NOT vacuous: tampering with a
+# 6. Verification persists physical measurement collapse. Measure a
+# Z-prepared state in X, then verify again in the measured X basis. The
+# second verification must use the stored collapsed state, not the
+# original Z state.
+# ---------------------------------------------------------------------------
+lifecycle_km = generate_key_material(1, rng, bases_pool=("Z",))
+distribute_public_key(lifecycle_km, rng)
+lifecycle_qubit = lifecycle_km.key_set_0[0]
+pre_measurement_state = lifecycle_qubit.bob_state.copy()
+first_lifecycle_signature = SignatureBit(message_bit=0, disclosed_descriptions=[("X", 0)])
+first_lifecycle_result = verify_bit(lifecycle_km, first_lifecycle_signature, rng)
+first_outcome = first_lifecycle_result.per_qubit_outcomes[0][0]
+expected_collapsed_state = prepare_pauli_eigenstate("X", first_outcome)
+
+check("verification persists the observed X-basis collapsed state",
+      state_fidelity(lifecycle_qubit.bob_state, expected_collapsed_state) > 1 - 1e-8)
+check("verification changes the stored state after an incompatible-basis measurement",
+      state_fidelity(lifecycle_qubit.bob_state, pre_measurement_state) < 1 - 1e-8)
+
+second_lifecycle_signature = SignatureBit(
+    message_bit=0, disclosed_descriptions=[("X", first_outcome)]
+)
+second_lifecycle_result = verify_bit(lifecycle_km, second_lifecycle_signature, rng)
+check("a second X-basis verification uses the already-collapsed state",
+      second_lifecycle_result.accepted
+      and second_lifecycle_result.per_qubit_outcomes[0][0] == first_outcome)
+
+# ---------------------------------------------------------------------------
+# 7. Sanity check that verification is NOT vacuous: tampering with a
 #    disclosed eigenvalue must be detected as a mismatch. This is a basic
 #    arithmetic sanity check on verify_bit itself -- NOT a real attack
 #    simulator (that is Phase 5's job) -- just confirming the comparison
@@ -142,7 +171,7 @@ check("Tampered signature is rejected under threshold=0",
       not result_tampered.accepted)
 
 # ---------------------------------------------------------------------------
-# 7. Error handling: signing an invalid message bit raises
+# 8. Error handling: signing an invalid message bit raises
 # ---------------------------------------------------------------------------
 try:
     sign_bit(key_material, message_bit=2)
@@ -151,7 +180,7 @@ except ValueError:
     check("sign_bit rejects invalid message_bit", True)
 
 # ---------------------------------------------------------------------------
-# 8. Error handling: verifying before distribution raises a clear error
+# 9. Error handling: verifying before distribution raises a clear error
 # ---------------------------------------------------------------------------
 km_undistributed = generate_key_material(L, rng)
 sig_undistributed = sign_bit(km_undistributed, message_bit=0)

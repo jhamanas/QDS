@@ -79,14 +79,17 @@ channel using pure states — averaged over many trials it reproduces
 standard depolarizing-channel measurement statistics without needing a
 density-matrix simulator.
 
-For a qubit measured in its OWN preparation basis, only X and Y errors
-cause a mismatch (a same-basis Z error leaves a Z-eigenstate's
-diagonal-basis outcome unchanged in the corresponding cases — more
-precisely, only the two error types anticommuting with the measurement
-basis flip the outcome). This means the *achievable* mismatch rate
-under this noise model caps below `p` itself; e.g. at `p=1.0` the
-observed mismatch rate is ≈1/3, not 100% (confirmed in
-`tests/test_detector.py`).
+For a qubit measured in its OWN preparation basis, the identity and the
+matching Pauli error preserve the outcome; the two Pauli errors that
+anticommute with the measurement basis flip it. Therefore the mismatch
+probability is `2p/3`, so at `p=1.0` it is `2/3`, not 100% and not
+`1/3`. This is distinct from mean pure-state fidelity: at `p=1.0`, a
+Pauli eigenstate has fidelity 1 on the one matching-Pauli branch and 0
+on the other two branches, for mean fidelity `1/3`.
+
+Equivalently, in the alternative parameterization
+`D_lambda(rho) = (1-lambda) rho + lambda I/2`, this channel has
+`lambda = 4p/3`; the two parameter names must not be interchanged.
 
 ## 5. Intercept-resend eavesdropping (`attacks/intercept_resend.py`)
 
@@ -185,29 +188,38 @@ false identity is indistinguishable from a genuine one" and "full
 disclosure of a key set, twice, for two different bits, is full
 disclosure of everything."
 
-## 8. Threshold calibration (`detection/thresholds.py`, `evaluation/security_analysis.py`)
+## 8. Operational threshold calibration (`detection/thresholds.py`)
 
-Given a baseline of `n_trials` honest runs' mismatch counts (mean `μ`,
-std `σ`), the calibrated threshold is:
+The former operational rule, `ceil(mean + max(6 * std, 1))`, was an
+empirical mean-plus-6-sigma heuristic. It did not state an honest
+false-reject target and finite Monte Carlo estimates, integer rounding,
+and clipping changed its tail behavior.
 
-```
-threshold = ceil(μ + max(margin_std · σ, min_margin_count))capped at L
-```
-
-`evaluation/security_analysis.py`'s `predicted_threshold()` approximates
-this at ANY `L` (without re-simulating teleportation at every candidate
-value) using a binomial approximation, since each qubit's noise is
-applied independently:
+For the repository's independent Pauli-noise simulation, a qubit
+measured in its own Pauli basis has mismatch probability `q = 2p/3`,
+where `p` is `channel_noise_p`. For `L` independently affected qubits:
 
 ```
-μ(L) ≈ rate · L
-σ(L) ≈ sqrt(L · rate · (1 - rate))
+M ~ Binomial(L, q)
 ```
 
-where `rate` is a per-qubit mismatch rate estimated once from a real
-baseline collection. Validated against real calibration runs at L=40
-and L=80 in `tests/test_security_analysis.py` (predicted threshold
-matched the real one exactly in both cases at the tested seed).
+The operational policy uses `DEFAULT_FALSE_REJECT_ALPHA = 1e-6` and
+chooses the smallest integer `t` in `[0, L]` satisfying:
+
+```
+P(M > t) <= alpha
+```
+
+The calibration reports that actual binomial false-reject probability,
+along with `L`, `p`, `q`, `alpha`, and `t`. If `t == L`, the reported
+tail is zero but every possible mismatch count is accepted, so a
+mismatch-count detector cannot reject a trial on that signal alone.
+
+The empirical baseline collection is retained to diagnose whether honest
+simulation behavior agrees with the model; it no longer determines the
+operational cutoff. This is an educational/demo statistical calibration
+policy, not a cryptographic security parameter, QDS security proof, or
+guarantee for hardware or correlated noise.
 
 ## 9. Performance scaling (`evaluation/performance_benchmark.py`)
 

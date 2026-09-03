@@ -104,7 +104,7 @@ from detection.thresholds import calibrate_threshold
 
 L_DET = 40
 honest_baseline = collect_baseline(L=L_DET, n_trials=100, channel_noise_p=0.03, rng=rng)
-calib = calibrate_threshold(honest_baseline, margin_std=6.0)
+calib = calibrate_threshold(honest_baseline)
 threshold = calib["mismatch_threshold"]
 
 N_ATTACK_TRIALS = 40

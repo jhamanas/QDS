@@ -26,9 +26,18 @@ def _canonical(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def _commitment(session_id: str, set_index: int, qubit_index: int, basis: str, eigen: int) -> str:
+def _commitment(session_id: str, set_index: int, qubit_index: int,
+                basis: str, eigen: int, opening_nonce: str) -> str:
+    """Commit to one description with a secret high-entropy opening nonce.
+
+    The nonce is deliberately absent from ``AuthenticatedPublicRecord`` and
+    disclosed only with the selected key set in ``SecureSignature``. Without
+    it, the six possible (basis, eigen) values cannot be checked against a
+    public commitment by the old enumeration attack.
+    """
     return hashlib.sha256(_canonical({"session_id": session_id, "set": set_index,
-                                      "index": qubit_index, "basis": basis, "eigen": eigen})).hexdigest()
+                                      "index": qubit_index, "basis": basis, "eigen": eigen,
+                                      "opening_nonce": opening_nonce})).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -49,6 +58,7 @@ class SecureSignature:
     message_bit: int
     payload_digest: str
     disclosed_descriptions: tuple[tuple[str, int], ...]
+    opening_nonces: tuple[str, ...]
 
 
 @dataclass
@@ -67,6 +77,7 @@ class SecureSession:
     key_material: SingleBitKeyMaterial
     public_record: AuthenticatedPublicRecord
     _authentication_key: bytes = field(repr=False)
+    _opening_nonces: tuple[tuple[str, ...], tuple[str, ...]] = field(repr=False)
     _used: bool = False
 
     @classmethod
@@ -77,15 +88,21 @@ class SecureSession:
         key_material = generate_key_material(L, rng, DEFAULT_BASES)
         distribute_public_key(key_material, rng)
         session_id = uuid.uuid4().hex
-        commitments = tuple(tuple(_commitment(session_id, set_idx, index, q.basis, q.eigen)
-                                  for index, q in enumerate(key_set))
-                            for set_idx, key_set in enumerate((key_material.key_set_0, key_material.key_set_1)))
+        key_sets = (key_material.key_set_0, key_material.key_set_1)
+        opening_nonces = tuple(tuple(secrets.token_hex(32) for _ in key_set)
+                               for key_set in key_sets)
+        commitments = tuple(
+            tuple(_commitment(session_id, set_idx, index, q.basis, q.eigen,
+                              opening_nonces[set_idx][index])
+                  for index, q in enumerate(key_set))
+            for set_idx, key_set in enumerate(key_sets)
+        )
         body = {"session_id": session_id, "signer_id": signer_id, "recipient_id": recipient_id,
                 "commitments": commitments}
         tag = hmac.new(authentication_key, _canonical(body), hashlib.sha256).hexdigest()
         return cls(signer_id, recipient_id, key_material,
                    AuthenticatedPublicRecord(session_id, signer_id, recipient_id, commitments, tag),
-                   authentication_key)
+                   authentication_key, opening_nonces)
 
     def sign(self, message_bit: int, payload: str) -> SecureSignature:
         if message_bit not in (0, 1):
@@ -97,7 +114,8 @@ class SecureSession:
         return SecureSignature(self.public_record.session_id, secrets.token_urlsafe(18), self.signer_id,
                                self.recipient_id, message_bit,
                                hashlib.sha256(payload.encode("utf-8")).hexdigest(),
-                               tuple((q.basis, q.eigen) for q in key_set))
+                               tuple((q.basis, q.eigen) for q in key_set),
+                               self._opening_nonces[message_bit])
 
 
 @dataclass
@@ -137,11 +155,14 @@ class SecureVerifier:
         if signature.message_bit not in (0, 1):
             return SecureVerificationResult(False, "invalid message bit")
         commitments = record.commitments[signature.message_bit]
-        if len(commitments) != len(signature.disclosed_descriptions):
-            return SecureVerificationResult(False, "signature length does not match committed key set")
-        for index, (basis, eigen) in enumerate(signature.disclosed_descriptions):
+        if (len(commitments) != len(signature.disclosed_descriptions)
+                or len(commitments) != len(signature.opening_nonces)):
+            return SecureVerificationResult(False, "signature openings do not match committed key set length")
+        for index, ((basis, eigen), opening_nonce) in enumerate(
+                zip(signature.disclosed_descriptions, signature.opening_nonces)):
             if basis not in DEFAULT_BASES or eigen not in (0, 1) or not hmac.compare_digest(
-                commitments[index], _commitment(signature.session_id, signature.message_bit, index, basis, eigen)
+                commitments[index], _commitment(signature.session_id, signature.message_bit, index,
+                                                  basis, eigen, opening_nonce)
             ):
                 return SecureVerificationResult(False, "key-description commitment check failed")
         physical = verify_bit(self._bob_key_material[signature.session_id],
