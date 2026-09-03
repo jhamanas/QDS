@@ -2,38 +2,48 @@
   "config": {
     "L": 64,
     "channel_noise_p": 0.03,
-    "margin_std": 6.0
+    "per_qubit_mismatch_probability": 0.02,
+    "seed": 20260903,
+    "n_calibration_trials": 200,
+    "n_attack_trials": 100,
+    "methodology": "Independent Pauli channel noise is applied to both honest calibration and attack trials."
   },
   "intercept_resend_sweep": [
     {
       "intercept_prob": 0.05,
+      "n_trials": 100,
       "detection_rate": 0.0,
-      "mean_mismatch_count": 1.07
+      "mean_mismatch_count": 2.33
     },
     {
       "intercept_prob": 0.1,
+      "n_trials": 100,
       "detection_rate": 0.0,
-      "mean_mismatch_count": 2.14
+      "mean_mismatch_count": 3.21
     },
     {
       "intercept_prob": 0.25,
-      "detection_rate": 0.03,
-      "mean_mismatch_count": 5.1
+      "n_trials": 100,
+      "detection_rate": 0.15,
+      "mean_mismatch_count": 6.49
     },
     {
       "intercept_prob": 0.5,
-      "detection_rate": 0.59,
-      "mean_mismatch_count": 10.48
+      "n_trials": 100,
+      "detection_rate": 0.81,
+      "mean_mismatch_count": 11.3
     },
     {
       "intercept_prob": 0.75,
-      "detection_rate": 0.97,
-      "mean_mismatch_count": 15.9
+      "n_trials": 100,
+      "detection_rate": 0.99,
+      "mean_mismatch_count": 16.26
     },
     {
       "intercept_prob": 1.0,
+      "n_trials": 100,
       "detection_rate": 1.0,
-      "mean_mismatch_count": 21.0
+      "mean_mismatch_count": 21.6
     }
   ],
   "attack_detectability_summary": {

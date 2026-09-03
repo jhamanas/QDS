@@ -1,1 +1,3 @@
-numpy>=1.24
+# Reproducible evaluation environment (the supported minimum is documented
+# in README.md; the upper bound avoids unreviewed major-version changes).
+numpy>=1.24,<3

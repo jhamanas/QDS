@@ -10,6 +10,6 @@ The active implementation and tests use the following paths:
   `tests/test_state_store.py`, `tests/test_metrics.py`, and
   `tests/test_memory_tamper.py`.
 
-Files with the older `attacks_*.py` or `tests_test_*.py` naming are retained for
-historical compatibility and are not imported by the dashboard or API. New
-changes should be made only in the canonical paths above.
+The former `attacks_*.py` and `tests_test_*.py` copies were removed. They were
+not imported by the dashboard or API and had drifted from the canonical tests.
+New changes must use the paths listed above.

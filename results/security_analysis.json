@@ -1,0 +1,24 @@
+{
+  "L": 64,
+  "channel_noise_p": 0.03,
+  "per_qubit_mismatch_probability": 0.02,
+  "alpha": 1e-06,
+  "calibrated_threshold": 9,
+  "actual_binomial_false_reject_probability": 5.783243586333023e-07,
+  "threshold_equals_L": false,
+  "baseline_mean_mismatch_count": 1.175,
+  "empirical_false_reject_rate": 0.0,
+  "blind_forge_prob_at_threshold": 1.771111690087538e-09,
+  "blind_forge_prob_at_threshold_zero": 5.421010862427522e-20,
+  "intercept_forge_prob": 1.0,
+  "impersonation_prob": 1.0,
+  "eavesdrop_detection_by_intercept_prob": {
+    "0.1": 0.0,
+    "0.25": 0.09,
+    "0.5": 0.73,
+    "0.75": 0.97,
+    "1.0": 1.0
+  },
+  "recommended_L_for_2pow40": 81,
+  "recommended_L_for_2pow64": 117
+}

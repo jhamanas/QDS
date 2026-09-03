@@ -1,13 +1,16 @@
 # Quantum-Inspired Threat Detection Framework
 
-A from-scratch quantum statevector simulator, a teleportation-based
-Quantum Digital Signature (QDS) scheme, a statistical detector for
-channel disturbance, four attack simulators, and a full security and
-performance evaluation.
+A quantum-inspired, statevector-simulator security-evaluation framework:
+a teleportation-based QDS *model*, a statistical detector for channel
+disturbance, attack simulators, and performance evaluation. It is not a
+production authentication service, a standardized QDS construction, a formal
+security proof, or an implementation tested on quantum hardware.
 
-**Start here:** `docs/final_report.md` for the headline results,
-`results/security_analysis.md` for the full security writeup with
-numbers.
+**Start here:** `docs/final_report.md` for the project summary and
+`results/security_analysis.json` plus `results/reproducibility.json` for the
+latest machine-readable evaluation and its provenance. The older Markdown
+security report is retained as historical narrative, not a replacement for
+the reproducible result files.
 
 ## Setup
 
@@ -36,7 +39,8 @@ python3 tests/test_secure_protocol.py         # Hardened session controls
 ```
 
 All run from the project root (each test file adjusts `sys.path`
-itself). 202 checks pass across the full suite as of Phase 8.
+itself). Record the test output with the commit under review rather than
+relying on a historical pass count.
 
 Note: `tests/test_attacks.py`, `test_validate_detection.py`,
 `test_security_analysis.py`, and `test_performance_benchmark.py` run
@@ -95,16 +99,15 @@ Vercel is the simplest fit for this project because it serves
 `dashboard.html` as a static page and runs `api/run.py` as a Python Function.
 The repository now includes the required adapter and `vercel.json`.
 
-1. Create an empty GitHub repository.
-2. From `D:\SIH\QDS`, run:
+1. Create a Vercel project and import this existing GitHub repository.
+2. If the repository has not been pushed yet, connect its existing Git remote
+   and push the current branch:
 
 ```bash
-git init
+git remote -v
 git add .
-git commit -m "Initial QDS security dashboard"
-git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
-git push -u origin main
+git commit -m "Prepare QDS dashboard deployment"
+git push
 ```
 
 3. Sign in at [Vercel](https://vercel.com), choose **New Project**, import the
@@ -184,8 +187,8 @@ Cross-origin browser access is disabled by default; configure an exact
 - The statistical QBER detector catches exactly one of five attack
   surfaces (intercept-resend); the other four are unconditionally
   invisible to it.
-- Recommended L for 2⁻⁴⁰ forgery resistance at 3% channel noise:
-  **~78-81**, not the naive 40.
+- The recorded evaluation recommends **L=81** for the illustrative 2⁻⁴⁰
+  blind-forgery target at 3% channel noise, under its stated threshold policy.
 - The implementation scales linearly in L (R²≈0.9999+) and is fast in
   practice (tens of milliseconds per sign/verify cycle at the
   recommended L).
@@ -208,3 +211,22 @@ print(json.dumps({'sweep': [p.__dict__ for p in points], 'summary': summary}, in
 
 and similarly for `evaluation.performance_benchmark.write_benchmark_csv`
 — see that module's docstrings for the full function signatures.
+
+For the supported, deterministic regeneration command and environment record,
+see `docs/reproducibility.md`.
+
+## State lifecycle and security scope
+
+The base protocol is a reusable simulator abstraction: its stored statevector
+can be copied and measured during an experiment and therefore does not model
+physical qubit consumption. The hardened session layer instead consumes both
+the signature ID and verifier authorization before measurement, so a captured
+signature cannot be retried. This operational replay protection must not be
+mistaken for a physical quantum-memory model.
+
+QBER measures channel disturbance and reliably helps detect intercept-resend
+in this simulator. It does not detect attacks that leave no measurement
+disturbance, such as an authenticated replay or an attacker who controls the
+stored state. HMAC is only a classical authenticated-channel stand-in, not a
+public digital signature. A deployment needs real identity/authentication,
+durable state storage, key management, and an appropriate threat model.
