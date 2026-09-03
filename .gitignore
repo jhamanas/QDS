@@ -5,3 +5,4 @@ venv/
 .env
 .env.*
 .vercel/
+tests/_state_test.sqlite3

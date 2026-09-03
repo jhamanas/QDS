@@ -128,11 +128,12 @@ manually relaunch the site. Existing browser tabs may need a refresh to load a
 new frontend bundle. See [Vercel Git deployments](https://vercel.com/docs/git)
 and [Vercel Python Functions](https://vercel.com/docs/functions/functions-api-reference/vercel-sdk-python).
 
-Important production limitation: `scenario_runner.py` currently creates a
-fresh in-memory session per request. That is appropriate for this demonstration
-dashboard, but persistent replay/key-use state and real user authentication
-require a database and a proper identity/authentication service before treating
-the public site as a security system.
+Important production limitation: the API now injects `core.state_store.SQLiteStateStore`
+using `QDS_STATE_DB` (default `/tmp/qds_state.sqlite3`) for atomic replay and
+authorization consumption. Vercel's `/tmp` filesystem is ephemeral, so configure
+a durable mounted volume or a hosted database adapter before treating the public
+site as a security system. The simulation still creates a fresh demonstration
+session per request and does not provide real user authentication.
 
 ## Delivery Table (Expected Deliverables)
 
@@ -141,9 +142,14 @@ the public site as a security system.
 | Quantum state, Bell-pair, and teleportation simulator | `core/` | Complete |
 | QDS signing and verification model | `core/qds_protocol.py` | Complete |
 | Hardened authenticated session design | `core/secure_protocol.py` | Complete |
-| Selectable attack simulator with variables | `run_scenario.py` | Complete |
-| Click-and-slider presentation dashboard | `dashboard.py`, `dashboard.html` | Complete |
+| Selectable attack simulator with variables | `scenario_runner.py`, `run_scenario.py` | Complete |
+| Click-and-slider presentation dashboard (attack intensity and noise model controls) | `dashboard.py`, `dashboard.html` | Complete |
 | Statistical QBER detector | `detection/` | Complete |
+| Signer-issued verifier authorization | `core/secure_protocol.py` | Complete |
+| Unauthorized-verifier attack and tests | `attacks/unauthorized_verification.py`, `tests/test_unauthorized_verification.py` | Complete |
+| Durable replay/authorization consumption | `core/state_store.py` (configure `QDS_STATE_DB`) | Complete locally; Vercel needs durable storage |
+| Acceptance confidence intervals | `evaluation/metrics.py`, `evaluation/acceptance_matrix.py` | Complete |
+| Memory-tamper fail-closed path | `attacks/memory_tamper.py`, `core/secure_protocol.py` | Complete |
 | Attack, security, and performance evaluation | `attacks/`, `evaluation/`, `results/` | Complete |
 | Automated verification suite | `tests/` | Complete |
 

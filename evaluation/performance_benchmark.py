@@ -38,6 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import time
 import csv
+import tracemalloc
 import numpy as np
 
 from core.qds_protocol import generate_key_material, distribute_public_key, sign_bit, verify_bit
@@ -53,6 +54,8 @@ class ProtocolTiming:
     sign_seconds: float
     verify_seconds: float
     total_seconds: float
+    peak_memory_bytes: int = 0
+    measurement_count: int = 0
 
 
 def benchmark_qds_protocol(L_values: tuple[int, ...], rng: np.random.Generator,
@@ -69,7 +72,9 @@ def benchmark_qds_protocol(L_values: tuple[int, ...], rng: np.random.Generator,
     results = []
     for L in L_values:
         key_gen_times, dist_times, sign_times, verify_times = [], [], [], []
+        peak_memory = 0
         for _ in range(n_repeats):
+            tracemalloc.start()
             t0 = time.perf_counter()
             km = generate_key_material(L, rng)
             t1 = time.perf_counter()
@@ -79,11 +84,14 @@ def benchmark_qds_protocol(L_values: tuple[int, ...], rng: np.random.Generator,
             t3 = time.perf_counter()
             verify_bit(km, sig, rng, mismatch_threshold=0)
             t4 = time.perf_counter()
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
 
             key_gen_times.append(t1 - t0)
             dist_times.append(t2 - t1)
             sign_times.append(t3 - t2)
             verify_times.append(t4 - t3)
+            peak_memory = max(peak_memory, peak)
 
         key_gen = float(np.mean(key_gen_times))
         dist = float(np.mean(dist_times))
@@ -93,6 +101,7 @@ def benchmark_qds_protocol(L_values: tuple[int, ...], rng: np.random.Generator,
             L=L, key_gen_seconds=key_gen, distribution_seconds=dist,
             sign_seconds=sign, verify_seconds=verify,
             total_seconds=key_gen + dist + sign + verify,
+            peak_memory_bytes=int(peak_memory), measurement_count=L,
         ))
     return results
 

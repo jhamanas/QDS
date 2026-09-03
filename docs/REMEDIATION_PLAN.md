@@ -1,3 +1,15 @@
+# Remediation status (current branch)
+
+The following audit gaps are implemented: signer-issued verifier authorization
+(identity, expiry, HMAC integrity, and one-time use), dedicated unauthorized
+verification tests, optional atomic SQLite replay state via `QDS_STATE_DB`,
+Wilson confidence intervals for acceptance evidence, an alpha/beta parameter
+search, and peak-memory/measurement-count fields in performance timings.
+The simulator remains explicitly educational; HMAC and SQLite are deployment
+controls, not information-theoretic security proofs. Vercel's `/tmp` storage is
+ephemeral, so production replay protection requires a durable database or
+mounted volume.
+
 # 1. Critical Issues
 
 ## 1.1 Enumerable commitments expose the purported secret descriptions
@@ -71,6 +83,12 @@
 - **How to verify later:** Compare held-out false-reject rates with the specified target over repeated seeded runs. Report confidence intervals and detection rates under the same noise-plus-attack conditions.
 
 ## 3.2 Replay and one-time controls are in-memory only
+
+**Remediation note:** `core/state_store.py` now provides atomic SQLite
+consumption for signature and authorization IDs, and `api/run.py` injects it
+through `QDS_STATE_DB`. This closes the local durable-state gap when the path is
+on persistent storage. Vercel's ephemeral filesystem still cannot provide this
+guarantee across cold starts; a hosted database adapter is required there.
 
 - **Problem:** Replay IDs, registered distribution records, and `_used` status exist only in Python process memory. Dashboard/API scenario execution creates a fresh session per request.
 - **Exact file/location:** `core/secure_protocol.py:63-154`; `scenario_runner.py`.

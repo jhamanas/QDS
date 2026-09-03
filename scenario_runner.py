@@ -4,27 +4,38 @@ import secrets
 import numpy as np
 from attacks.forgery import blind_forgery_attempt, intercepting_forgery_attempt
 from attacks.intercept_resend import intercept_resend_attack
-from core.noise import apply_depolarizing_noise
+from attacks.unauthorized_verification import unauthorized_verification_attack
+from core.noise import apply_noise
 from core.secure_protocol import SecureSession, SecureSignature, SecureVerifier
-ATTACKS = ("honest", "intercept-resend", "blind-forgery", "intercepting-forgery", "impersonation", "replay", "key-reuse", "payload-tamper", "unauthorized-verification")
-def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, threshold=0, message_bit=0, payload="authorise-transfer:100", seed=7):
+ATTACKS = ("honest", "intercept-resend", "blind-forgery", "intercepting-forgery", "impersonation", "replay", "key-reuse", "payload-tamper", "unauthorized-verification", "memory-tamper")
+def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, threshold=0, message_bit=0, payload="authorise-transfer:100", seed=7, state_store=None, noise_model="depolarizing"):
     if attack not in ATTACKS: raise ValueError(f"Unknown attack: {attack}")
     if not 0 <= intensity <= 1 or not 0 <= noise <= 1 or threshold < 0 or length < 1: raise ValueError("intensity/noise must be in [0, 1]; threshold >= 0; length >= 1")
-    rng=np.random.default_rng(seed); key=secrets.token_bytes(32); verifier=SecureVerifier("bob", {"alice":key}); session=SecureSession.create("alice","bob",length,rng,key); verifier.register_distribution(session)
-    data={"attack":attack,"length":length,"intensity":intensity,"noise":noise,"threshold":threshold,"message_bit":message_bit}
+    if noise_model not in ("depolarizing", "bit-flip", "phase-flip"): raise ValueError("Unknown noise model")
+    rng=np.random.default_rng(seed); key=secrets.token_bytes(32); verifier=SecureVerifier("bob", {"alice":key}, state_store=state_store); session=SecureSession.create("alice","bob",length,rng,key); verifier.register_distribution(session)
+    data={"attack":attack,"length":length,"intensity":intensity,"noise":noise,"noise_model":noise_model,"threshold":threshold,"message_bit":message_bit}
     if attack=="impersonation":
         mallory=SecureSession.create("mallory","bob",length,rng,secrets.token_bytes(32)); result=verifier.verify(mallory.sign(message_bit,payload),payload,rng,threshold)
     else:
         if attack=="intercept-resend": data["qubits_intercepted"]=len(intercept_resend_attack(session.key_material,rng,intensity))
         if noise:
             for ks in (session.key_material.key_set_0,session.key_material.key_set_1):
-                for q in ks: q.bob_state=apply_depolarizing_noise(q.bob_state,noise,0,1,rng)
+                for q in ks: q.bob_state=apply_noise(q.bob_state,noise,0,1,rng,noise_model)
         sig=session.sign(message_bit,payload)
         if attack in ("blind-forgery","intercepting-forgery"):
             legacy=blind_forgery_attempt(length,message_bit,rng) if attack=="blind-forgery" else intercepting_forgery_attempt(session.key_material,message_bit,rng)
-            sig=SecureSignature(sig.session_id,sig.signature_id,"alice","bob",message_bit,sig.payload_digest,tuple(legacy.disclosed_descriptions),sig.opening_nonces)
-        target=SecureVerifier("eve",{"alice":key}) if attack=="unauthorized-verification" else verifier
-        result=target.verify(sig,payload+"-tampered" if attack=="payload-tamper" else payload,rng,threshold)
+            # Intensity is the fraction of key descriptions controlled by the
+            # attacker; untouched entries retain Alice's honest disclosure.
+            controlled = int(round(length * intensity))
+            descriptions = list(sig.disclosed_descriptions)
+            descriptions[:controlled] = legacy.disclosed_descriptions[:controlled]
+            sig=SecureSignature(sig.session_id,sig.signature_id,"alice","bob",message_bit,sig.payload_digest,tuple(descriptions),sig.opening_nonces,sig.authorization)
+        if attack == "memory-tamper":
+            result = verifier.verify(sig, payload, rng, threshold, memory_integrity_ok=False)
+        elif attack == "unauthorized-verification":
+            result = unauthorized_verification_attack(session, payload, rng, threshold, signature=sig)
+        else:
+            result=verifier.verify(sig,payload+"-tampered" if attack=="payload-tamper" else payload,rng,threshold)
         if attack=="replay": result=verifier.verify(sig,payload,rng,threshold)
         if attack=="key-reuse":
             try: session.sign(1-message_bit,payload); data["key_reuse_prevented"]=False

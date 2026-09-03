@@ -146,6 +146,27 @@ def required_L_for_target_security(threshold_fraction: float, target_forge_prob:
     return None
 
 
+def find_alpha_beta_parameters(channel_noise_p: float, alpha: float, beta: float,
+                               L_search_max: int = 3000) -> dict[str, float | int] | None:
+    """Find the first ``L`` whose calibrated threshold meets both error goals.
+
+    ``alpha`` is the honest false-reject target and ``beta`` is the blind-forger
+    false-accept target. The result is an auditable parameter choice rather than
+    a claim that one QBER number detects every attack class.
+    """
+    if not 0 < alpha < 1 or not 0 < beta < 1 or not 0 <= channel_noise_p <= 1:
+        raise ValueError("alpha/beta must be in (0,1) and noise in [0,1]")
+    for L in range(1, L_search_max + 1):
+        calibration = binomial_tail_threshold(L, channel_noise_p, alpha)
+        threshold = calibration["mismatch_threshold"]
+        forge = analytic_blind_forge_success_prob(L, threshold)
+        if forge <= beta:
+            return {"L": L, "threshold": threshold, "alpha": alpha, "beta": beta,
+                    "honest_false_reject_bound": calibration["actual_binomial_false_reject_probability"],
+                    "blind_forge_false_accept_bound": forge}
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Part 2: realistic-calibration parameter recommendation
 # ---------------------------------------------------------------------------

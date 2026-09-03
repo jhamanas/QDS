@@ -1,3 +1,13 @@
+# Current implementation note
+
+The findings below preserve the original audit trail. Since that audit, the
+secure wrapper has been remediated with high-entropy per-qubit opening nonces,
+signer-issued verifier authorization (identity, expiry, HMAC integrity, and
+one-time use), optional SQLite replay state, Wilson acceptance intervals,
+alpha/beta parameter search, and benchmark memory/measurement reporting. The
+simulator remains educational and is not a formally proven or publicly
+verifiable QDS implementation.
+
 # 1. Executive Summary
 
 **Scope.** This is a read-only consolidation of the completed repository audit and deep theory/security validation. It is not a new audit. No source code was changed. The requested earlier file `docs/INITIAL_COMPLETE_AUDIT.md` was not present when the deep-validation pass began.

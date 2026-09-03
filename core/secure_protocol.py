@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import time
 import uuid
 import numpy as np
 
@@ -50,6 +51,18 @@ class AuthenticatedPublicRecord:
 
 
 @dataclass(frozen=True)
+class VerifierAuthorization:
+    """Signer-issued, time-limited authorization for one verifier."""
+    authorization_id: str
+    session_id: str
+    signer_id: str
+    verifier_id: str
+    issued_at: float
+    expires_at: float
+    authentication_tag: str
+
+
+@dataclass(frozen=True)
 class SecureSignature:
     session_id: str
     signature_id: str
@@ -59,6 +72,7 @@ class SecureSignature:
     payload_digest: str
     disclosed_descriptions: tuple[tuple[str, int], ...]
     opening_nonces: tuple[str, ...]
+    authorization: VerifierAuthorization | None = None
 
 
 @dataclass
@@ -104,18 +118,32 @@ class SecureSession:
                    AuthenticatedPublicRecord(session_id, signer_id, recipient_id, commitments, tag),
                    authentication_key, opening_nonces)
 
-    def sign(self, message_bit: int, payload: str) -> SecureSignature:
+    def issue_authorization(self, verifier_id: str, ttl_seconds: float = 300.0) -> VerifierAuthorization:
+        if not verifier_id or ttl_seconds <= 0:
+            raise ValueError("verifier_id and a positive authorization TTL are required")
+        issued = time.time()
+        body = {"authorization_id": uuid.uuid4().hex, "session_id": self.public_record.session_id,
+                "signer_id": self.signer_id, "verifier_id": verifier_id,
+                "issued_at": issued, "expires_at": issued + ttl_seconds}
+        tag = hmac.new(self._authentication_key, _canonical(body), hashlib.sha256).hexdigest()
+        return VerifierAuthorization(authentication_tag=tag, **body)
+
+    def sign(self, message_bit: int, payload: str,
+             authorization: VerifierAuthorization | None = None) -> SecureSignature:
         if message_bit not in (0, 1):
             raise ValueError("message_bit must be 0 or 1")
         if self._used:
             raise ValueError("Session key material is one-time use and has already signed a message")
+        authorization = authorization or self.issue_authorization(self.recipient_id)
+        if authorization.session_id != self.public_record.session_id or authorization.verifier_id != self.recipient_id:
+            raise ValueError("authorization does not belong to this session and recipient")
         self._used = True
         key_set = self.key_material.key_set_0 if message_bit == 0 else self.key_material.key_set_1
         return SecureSignature(self.public_record.session_id, secrets.token_urlsafe(18), self.signer_id,
                                self.recipient_id, message_bit,
                                hashlib.sha256(payload.encode("utf-8")).hexdigest(),
                                tuple((q.basis, q.eigen) for q in key_set),
-                               self._opening_nonces[message_bit])
+                               self._opening_nonces[message_bit], authorization)
 
 
 @dataclass
@@ -126,6 +154,8 @@ class SecureVerifier:
     _records: dict[str, AuthenticatedPublicRecord] = field(default_factory=dict)
     _bob_key_material: dict[str, SingleBitKeyMaterial] = field(default_factory=dict, repr=False)
     _consumed_signature_ids: set[str] = field(default_factory=set)
+    _consumed_authorization_ids: set[str] = field(default_factory=set)
+    state_store: object | None = None
 
     def register_distribution(self, session: SecureSession) -> None:
         record = session.public_record
@@ -142,7 +172,9 @@ class SecureVerifier:
         self._bob_key_material[record.session_id] = session.key_material
 
     def verify(self, signature: SecureSignature, payload: str, rng: np.random.Generator,
-               mismatch_threshold: int = 0) -> SecureVerificationResult:
+               mismatch_threshold: int = 0, memory_integrity_ok: bool = True) -> SecureVerificationResult:
+        if not memory_integrity_ok:
+            return SecureVerificationResult(False, "integrity failure: quantum memory tamper detected; verification aborted")
         record = self._records.get(signature.session_id)
         if record is None:
             return SecureVerificationResult(False, "unknown or unauthenticated distribution session")
@@ -150,6 +182,23 @@ class SecureVerifier:
             return SecureVerificationResult(False, "replay detected: signature ID was already consumed")
         if signature.signer_id != record.signer_id or signature.recipient_id != self.recipient_id:
             return SecureVerificationResult(False, "signature identity binding failed")
+        authorization = signature.authorization
+        if authorization is None:
+            return SecureVerificationResult(False, "verifier authorization is missing")
+        auth_body = {"authorization_id": authorization.authorization_id,
+                     "session_id": authorization.session_id, "signer_id": authorization.signer_id,
+                     "verifier_id": authorization.verifier_id, "issued_at": authorization.issued_at,
+                     "expires_at": authorization.expires_at}
+        key = self.authentication_registry.get(record.signer_id)
+        if (key is None or authorization.session_id != record.session_id
+                or authorization.signer_id != record.signer_id
+                or authorization.verifier_id != self.recipient_id
+                or authorization.expires_at < time.time()
+                or not hmac.compare_digest(hmac.new(key, _canonical(auth_body), hashlib.sha256).hexdigest(),
+                                           authorization.authentication_tag)):
+            return SecureVerificationResult(False, "verifier authorization failed or expired")
+        if authorization.authorization_id in self._consumed_authorization_ids:
+            return SecureVerificationResult(False, "replay detected: verifier authorization was already consumed")
         if signature.payload_digest != hashlib.sha256(payload.encode("utf-8")).hexdigest():
             return SecureVerificationResult(False, "payload integrity check failed")
         if signature.message_bit not in (0, 1):
@@ -165,10 +214,18 @@ class SecureVerifier:
                                                   basis, eigen, opening_nonce)
             ):
                 return SecureVerificationResult(False, "key-description commitment check failed")
+        # Consume both one-time identifiers before the physical measurement so
+        # a failed quantum check cannot be retried with the same authorization.
+        if self.state_store is not None:
+            if not self.state_store.consume_authorization(authorization.authorization_id):
+                return SecureVerificationResult(False, "replay detected: verifier authorization was already consumed")
+            if not self.state_store.consume_signature(signature.signature_id):
+                return SecureVerificationResult(False, "replay detected: signature ID was already consumed")
+        self._consumed_authorization_ids.add(authorization.authorization_id)
+        self._consumed_signature_ids.add(signature.signature_id)
         physical = verify_bit(self._bob_key_material[signature.session_id],
                               SignatureBit(signature.message_bit, list(signature.disclosed_descriptions)), rng,
                               mismatch_threshold=mismatch_threshold)
-        self._consumed_signature_ids.add(signature.signature_id)
         if not physical.accepted:
             return SecureVerificationResult(False, "quantum mismatch threshold exceeded",
                                             physical.mismatch_count, mismatch_threshold)

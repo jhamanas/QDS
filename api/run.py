@@ -4,6 +4,8 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler
 import json
 import pathlib
+import os
+import tempfile
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -11,6 +13,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scenario_runner import run_scenario  # noqa: E402
+from core.state_store import SQLiteStateStore  # noqa: E402
+
+# Configure a durable path in the hosting environment when available. Vercel's
+# default /tmp filesystem is intentionally ephemeral; use an external database
+# adapter or mounted volume for replay protection across cold starts.
+_default_state_db = str(pathlib.Path(tempfile.gettempdir()) / "qds_state.sqlite3")
+STATE_STORE = SQLiteStateStore(os.environ.get("QDS_STATE_DB") or _default_state_db)
 
 
 class handler(BaseHTTPRequestHandler):
@@ -31,7 +40,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             size = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(size))
-            result = run_scenario(**data)
+            result = run_scenario(state_store=STATE_STORE, **data)
             self._send(200, json.dumps(result).encode("utf-8"), "application/json")
         except (ValueError, TypeError, json.JSONDecodeError) as error:
             self._send(400, json.dumps({"error": str(error)}).encode("utf-8"), "application/json")

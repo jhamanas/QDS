@@ -42,3 +42,30 @@ def apply_depolarizing_noise(state: np.ndarray, p: float, target: int,
     else:
         return state
     return apply_single_qubit_gate(state, gate, target=target, n_qubits=n_qubits)
+
+
+def apply_bit_flip_noise(state: np.ndarray, p: float, target: int,
+                         n_qubits: int, rng: np.random.Generator) -> np.ndarray:
+    """Apply an X error with probability ``p``."""
+    if not 0.0 <= p <= 1.0:
+        raise ValueError(f"p must be in [0, 1], got {p}")
+    return apply_single_qubit_gate(state, PAULI["X"], target, n_qubits) if rng.random() < p else state
+
+
+def apply_phase_flip_noise(state: np.ndarray, p: float, target: int,
+                           n_qubits: int, rng: np.random.Generator) -> np.ndarray:
+    """Apply a Z error with probability ``p``."""
+    if not 0.0 <= p <= 1.0:
+        raise ValueError(f"p must be in [0, 1], got {p}")
+    return apply_single_qubit_gate(state, PAULI["Z"], target, n_qubits) if rng.random() < p else state
+
+
+def apply_noise(state: np.ndarray, p: float, target: int, n_qubits: int,
+                rng: np.random.Generator, model: str = "depolarizing") -> np.ndarray:
+    """Dispatch one of the documented educational channel models."""
+    models = {"depolarizing": apply_depolarizing_noise, "bit-flip": apply_bit_flip_noise,
+              "phase-flip": apply_phase_flip_noise}
+    try:
+        return models[model](state, p, target, n_qubits, rng)
+    except KeyError as error:
+        raise ValueError(f"Unknown noise model: {model}") from error
