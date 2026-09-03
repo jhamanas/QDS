@@ -23,8 +23,8 @@ Five distinct attack surfaces are considered:
 |---|---|---|
 | **Intercept-resend** (eavesdropping) | Taps the quantum channel during key distribution | **Yes** — the only one |
 | **Blind forgery** | No channel access, no private key | No (on success); mismatch on failure looks like noise |
-| **Intercepting forgery** | Physical access to Bob's stored qubits before verification | No |
-| **Impersonation** | Ability to initiate a distribution session as "Alice" | No |
+| **Intercepting forgery** | Physical access to Bharat's stored qubits before verification | No |
+| **Impersonation** | Ability to initiate a distribution session as "Aditi" | No |
 | **Replay / key reuse** | Observes previously-broadcast signatures | No |
 
 Only the first produces an ongoing physical disturbance a QBER-based
@@ -38,11 +38,11 @@ statistics at all.
 
 `core/qds_protocol.py`'s original design docstring claimed a blind forger's
 per-qubit success probability was **1/6**, giving a `(1/6)^L` bound. This was
-wrong, and has been corrected in that file. `verify_bit()` measures Bob's
+wrong, and has been corrected in that file. `verify_bit()` measures Bharat's
 real qubit in whatever basis the *signature discloses*, not in some basis
-independently known to be Alice's true one:
+independently known to be Aditi's true one:
 
-- Forger's guessed basis matches Alice's true basis (prob 1/3): the
+- Forger's guessed basis matches Aditi's true basis (prob 1/3): the
   measurement is deterministic, so success requires also guessing the
   eigenvalue (prob 1/2) → contributes **1/6**.
 - Forger's guessed basis does **not** match (prob 2/3): a mismatched-basis
@@ -56,9 +56,9 @@ is **5.42 × 10⁻²⁰**.
 
 ### 2.1 The intercepting forger: a total, L-independent break
 
-`verify_bit()` has no way to check a disclosed basis against Alice's *true*
+`verify_bit()` has no way to check a disclosed basis against Aditi's *true*
 secret basis independently — it only ever measures in whichever basis the
-signature claims. An attacker with physical access to Bob's qubits measures
+signature claims. An attacker with physical access to Bharat's qubits measures
 once, in any basis, and truthfully discloses what she saw; verification then
 re-measures the same already-collapsed qubit in the same basis —
 deterministic by construction.
@@ -70,18 +70,18 @@ P(intercepting forgery succeeds) = 1.0, independent of L
 Confirmed empirically at exactly 1.0 across 5,000+ trials, including at
 L=100 (`attacks/forgery.py`, `tests/test_attacks.py`). **No choice of L
 protects against this.** Unforgeability rests on an assumption external to
-the disclosure/verification math: that Bob's qubits are physically
+the disclosure/verification math: that Bharat's qubits are physically
 inaccessible to attackers before verification.
 
 ### 2.2 Impersonation: no channel breach required at all
 
 A third, more basic failure mode found while building Phase 5's remaining
 simulators: `distribute_public_key` and `verify_bit` never bind the
-distributed qubits to any Alice-specific credential. An attacker (Mallory)
+distributed qubits to any Aditi-specific credential. An attacker (Meera)
 can simply run the **entire honest protocol herself** — generate her own key
-material, distribute it to Bob, sign it — and present the result as if it
-came from Alice. Since Mallory calls the exact same honest functions Alice
-would, the resulting session is internally consistent in every way Bob can
+material, distribute it to Bharat, sign it — and present the result as if it
+came from Aditi. Since Meera calls the exact same honest functions Aditi
+would, the resulting session is internally consistent in every way Bharat can
 check.
 
 ```
@@ -93,8 +93,8 @@ is honest by construction, just from the wrong identity)
 Confirmed at 300/300 trials and at L=100 (`attacks/impersonation.py`,
 `tests/test_attacks.py`). This is mitigated only by a mechanism entirely
 outside `core/qds_protocol.py`'s scope: an authenticated classical or
-quantum channel binding the distribution session to Alice's identity before
-Bob accepts it as her public key. Every real QDS proposal in the literature
+quantum channel binding the distribution session to Aditi's identity before
+Bharat accepts it as her public key. Every real QDS proposal in the literature
 assumes exactly this; this project makes the assumption explicit rather than
 leaving it implicit.
 
@@ -112,7 +112,7 @@ the security argument." Phase 5 implements that exploit directly
 - **Key reuse** — if the same `SingleBitKeyMaterial` object signs *both*
   possible message bits (a one-time-use violation), an observer who captures
   both resulting signatures now holds the complete, exact private
-  description of **both** key sets — confirmed to match Alice's true
+  description of **both** key sets — confirmed to match Aditi's true
   private fields exactly, byte for byte, in `tests/test_attacks.py`. There
   is no residual secrecy left to quantify probabilistically; this is a
   total compromise the instant the reuse happens.
@@ -245,10 +245,10 @@ comfortably practical for the simulation scale this project targets.
 
 1. Blind-forger security is `(1/2)^L` at threshold=0, not the originally
    claimed `(1/6)^L` — corrected in `core/qds_protocol.py`.
-2. An attacker with physical access to Bob's stored qubits forges with
+2. An attacker with physical access to Bharat's stored qubits forges with
    probability 1.0, independent of L.
 3. An attacker who never touches the real channel at all can impersonate
-   Alice with probability 1.0, independent of L — this scheme has no
+   Aditi with probability 1.0, independent of L — this scheme has no
    built-in identity binding.
 4. Reusing key material, or replaying a captured signature, is a total
    compromise or an indefinitely-repeatable forgery respectively — both

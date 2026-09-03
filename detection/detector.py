@@ -47,7 +47,7 @@ class DetectionResult:
 def verify_with_detection(key_material: SingleBitKeyMaterial, signature: SignatureBit,
                            rng: np.random.Generator, mismatch_threshold: int) -> DetectionResult:
     """
-    Runs Bob's physical verification (core.qds_protocol.verify_bit) using a
+    Runs Bharat's physical verification (core.qds_protocol.verify_bit) using a
     calibrated mismatch_threshold (from detection.thresholds.calibrate_threshold)
     rather than the strict threshold=0 default, and wraps the result with
     the extra diagnostic fields (mismatch_rate, threshold used) that later

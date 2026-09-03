@@ -102,7 +102,7 @@ def prepare_pauli_eigenstate(basis: str, eigen: int) -> np.ndarray:
 
     Used starting Phase 3 to build the QDS protocol's private key material
     (random Pauli eigenstates), where basis and eigenvalue together form
-    the secret classical description Alice keeps until signing.
+    the secret classical description Aditi keeps until signing.
 
         Z basis: eigen=0 -> |0>,  eigen=1 -> |1>
         X basis: eigen=0 -> |+>,  eigen=1 -> |->
@@ -315,8 +315,8 @@ def extract_reduced_state(state: np.ndarray, target_qubit: int,
     the remaining qubit is necessarily left in a definite pure state
     (not a mixed state) -- there is no lingering entanglement with
     qubits that no longer have any superposition left. This is exactly
-    the situation after Alice's two measurements in teleportation: only
-    Bob's qubit remains free, and its state is what teleportation
+    the situation after Aditi's two measurements in teleportation: only
+    Bharat's qubit remains free, and its state is what teleportation
     delivers (up to a known Pauli correction).
 
     Raises ValueError if the given `fixed` values are inconsistent with

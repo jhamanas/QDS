@@ -260,7 +260,7 @@ def generate_security_report(
         km = generate_key_material(L, rng)
         distribute_public_key(km, rng)
         for kq in km.key_set_0:
-            kq.bob_state = apply_depolarizing_noise(kq.bob_state, channel_noise_p,
+            kq.bharat_state = apply_depolarizing_noise(kq.bharat_state, channel_noise_p,
                                                       target=0, n_qubits=1, rng=rng)
         sig = sign_bit(km, message_bit=0)
         result = verify_bit(km, sig, rng, mismatch_threshold=threshold)
@@ -316,7 +316,7 @@ def non_qber_attack_bounds() -> dict[str, dict[str, object]]:
         "intercepting_forgery": {
             "success_probability": INTERCEPT_FORGE_SUCCESS_PROB,
             "l_dependent": False,
-            "mitigation": "Physical security of the quantum channel and Bob's "
+            "mitigation": "Physical security of the quantum channel and Bharat's "
                            "qubit storage prior to verification. No parameter "
                            "in this codebase compensates for a breach here.",
         },
@@ -324,7 +324,7 @@ def non_qber_attack_bounds() -> dict[str, dict[str, object]]:
             "success_probability": IMPERSONATION_SUCCESS_PROB,
             "l_dependent": False,
             "mitigation": "An authenticated channel or PKI binding the "
-                           "distribution session to Alice's identity, external "
+                           "distribution session to Aditi's identity, external "
                            "to core/qds_protocol.py entirely.",
         },
         "replay_and_key_reuse": {

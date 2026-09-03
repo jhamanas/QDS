@@ -32,7 +32,7 @@ def run_honest_trial(L: int, channel_noise_p: float, rng: np.random.Generator) -
     """
     Runs one full honest protocol cycle -- key generation, quantum public
     key distribution, signing a random message bit -- then applies
-    `channel_noise_p` depolarizing noise independently to each of Bob's
+    `channel_noise_p` depolarizing noise independently to each of Bharat's
     disclosed-key-set qubits (modeling storage/channel imperfection
     between distribution and verification) before calling verify_bit with
     mismatch_threshold=0, so the raw (uncalibrated) mismatch_count for
@@ -49,8 +49,8 @@ def run_honest_trial(L: int, channel_noise_p: float, rng: np.random.Generator) -
 
     key_set = key_material.key_set_0 if message_bit == 0 else key_material.key_set_1
     for kq in key_set:
-        kq.bob_state = apply_depolarizing_noise(
-            kq.bob_state, channel_noise_p, target=0, n_qubits=1, rng=rng
+        kq.bharat_state = apply_depolarizing_noise(
+            kq.bharat_state, channel_noise_p, target=0, n_qubits=1, rng=rng
         )
 
     result = verify_bit(key_material, signature, rng, mismatch_threshold=0)

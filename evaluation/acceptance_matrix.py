@@ -18,8 +18,8 @@ def evaluate_honest_acceptance(*, length: int = 64, trials: int = 100,
     accepted = 0
     for _ in range(trials):
         key = secrets.token_bytes(32)
-        session = SecureSession.create("alice", "bob", length, rng, key)
-        verifier = SecureVerifier("bob", {"alice": key})
+        session = SecureSession.create("aditi", "bharat", length, rng, key)
+        verifier = SecureVerifier("bharat", {"aditi": key})
         verifier.register_distribution(session)
         accepted += verifier.verify(session.sign(0, payload), payload, rng, mismatch_threshold).accepted
     return {"case": "honest_ideal", "length": length, "trials": trials,

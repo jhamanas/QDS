@@ -1,4 +1,4 @@
-"""Model a compromised Bob-memory integrity signal."""
+"""Model a compromised Bharat-memory integrity signal."""
 from __future__ import annotations
 
 from core.secure_protocol import SecureVerificationResult

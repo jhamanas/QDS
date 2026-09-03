@@ -85,7 +85,7 @@ class SecureVerificationResult:
 
 @dataclass
 class SecureSession:
-    """Alice-side session. Its key material can issue exactly one signature."""
+    """Aditi-side session. Its key material can issue exactly one signature."""
     signer_id: str
     recipient_id: str
     key_material: SingleBitKeyMaterial
@@ -148,11 +148,11 @@ class SecureSession:
 
 @dataclass
 class SecureVerifier:
-    """Bob-side verifier with independent authentication and replay state."""
+    """Bharat-side verifier with independent authentication and replay state."""
     recipient_id: str
     authentication_registry: dict[str, bytes]
     _records: dict[str, AuthenticatedPublicRecord] = field(default_factory=dict)
-    _bob_key_material: dict[str, SingleBitKeyMaterial] = field(default_factory=dict, repr=False)
+    _bharat_key_material: dict[str, SingleBitKeyMaterial] = field(default_factory=dict, repr=False)
     _consumed_signature_ids: set[str] = field(default_factory=set)
     _consumed_authorization_ids: set[str] = field(default_factory=set)
     state_store: object | None = None
@@ -169,7 +169,7 @@ class SecureVerifier:
         if record.recipient_id != self.recipient_id:
             raise ValueError("Distribution record is addressed to a different recipient")
         self._records[record.session_id] = record
-        self._bob_key_material[record.session_id] = session.key_material
+        self._bharat_key_material[record.session_id] = session.key_material
 
     def verify(self, signature: SecureSignature, payload: str, rng: np.random.Generator,
                mismatch_threshold: int = 0, memory_integrity_ok: bool = True) -> SecureVerificationResult:
@@ -223,7 +223,7 @@ class SecureVerifier:
                 return SecureVerificationResult(False, "replay detected: signature ID was already consumed")
         self._consumed_authorization_ids.add(authorization.authorization_id)
         self._consumed_signature_ids.add(signature.signature_id)
-        physical = verify_bit(self._bob_key_material[signature.session_id],
+        physical = verify_bit(self._bharat_key_material[signature.session_id],
                               SignatureBit(signature.message_bit, list(signature.disclosed_descriptions)), rng,
                               mismatch_threshold=mismatch_threshold)
         if not physical.accepted:

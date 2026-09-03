@@ -5,46 +5,46 @@ Phase 5: Intercept-resend eavesdropping attack simulator.
 
 Purpose
 -------
-Models an eavesdropper (Eve) sitting on the quantum public key
-distribution channel (Phase 3 step 2), between Alice's teleportation and
-Bob's eventual verification. Eve does NOT know Alice's private
+Models an eavesdropper (Esha) sitting on the quantum public key
+distribution channel (Phase 3 step 2), between Aditi's teleportation and
+Bharat's eventual verification. Esha does NOT know Aditi's private
 (basis, eigen) description for any qubit -- that is the whole point of
 the protocol -- so she cannot copy a qubit's exact information without
 disturbing it (no-cloning theorem). The intercept-resend strategy is the
 standard way to attack such a channel:
 
-  1. Eve intercepts the qubit in transit (here modeled as replacing
-     kq.bob_state immediately after distribute_public_key has delivered
-     Alice's honestly-teleported qubit -- i.e. we attack the delivered
+  1. Esha intercepts the qubit in transit (here modeled as replacing
+     kq.bharat_state immediately after distribute_public_key has delivered
+     Aditi's honestly-teleported qubit -- i.e. we attack the delivered
      state directly rather than re-deriving the teleportation circuit,
-     since the physical effect is identical: Bob ends up holding
-     whatever Eve decides to forward).
-  2. Eve measures the intercepted qubit in a basis she guesses uniformly
+     since the physical effect is identical: Bharat ends up holding
+     whatever Esha decides to forward).
+  2. Esha measures the intercepted qubit in a basis she guesses uniformly
      at random from {X, Y, Z} (she has no better information).
-  3. Eve re-prepares a fresh eigenstate in her guessed basis, with her
-     measured eigenvalue, and forwards THAT to Bob in place of the
+  3. Esha re-prepares a fresh eigenstate in her guessed basis, with her
+     measured eigenvalue, and forwards THAT to Bharat in place of the
      original.
 
-This is applied independently per qubit, across BOTH key sets (Eve
+This is applied independently per qubit, across BOTH key sets (Esha
 cannot tell which key set will later be disclosed as the signature, so
 she must attack everything crossing the channel).
 
 Expected disturbance (worked out analytically, confirmed by
 tests/test_attacks.py)
 ------------------------------------------------------------------------
-Bob later verifies by measuring in the basis Alice actually used and
+Bharat later verifies by measuring in the basis Aditi actually used and
 honestly discloses at signing time (her true basis for that qubit).
 For a single intercepted-and-resent qubit:
 
-  - Eve's guessed basis matches Alice's true basis (prob 1/3): her
+  - Esha's guessed basis matches Aditi's true basis (prob 1/3): her
     measurement was non-disturbing (she measured a true eigenstate in
     its own basis, got the true eigenvalue deterministically, and
-    resent an identical copy). Bob's later measurement in the same
+    resent an identical copy). Bharat's later measurement in the same
     (true) basis reproduces the true eigenvalue with certainty ->
     no mismatch introduced by this qubit.
-  - Eve's guessed basis differs from Alice's true basis (prob 2/3): her
+  - Esha's guessed basis differs from Aditi's true basis (prob 2/3): her
     resent state is now a definite eigenstate of the WRONG basis, so
-    when Bob measures it in Alice's true (disclosed) basis, the result
+    when Bharat measures it in Aditi's true (disclosed) basis, the result
     is maximally uncertain (mutually unbiased bases) -> 50/50 mismatch.
 
   Overall per-qubit mismatch probability introduced by full-channel
@@ -68,7 +68,7 @@ from core.qds_protocol import SingleBitKeyMaterial, DEFAULT_BASES
 
 @dataclass
 class InterceptResendLog:
-    """Per-qubit diagnostic record of what Eve did, for later analysis
+    """Per-qubit diagnostic record of what Esha did, for later analysis
     (Phase 6 validation, Phase 7 security writeup) -- not needed by the
     attack itself, but useful to confirm the 1/3 figure empirically
     without re-deriving it from scratch each time."""
@@ -76,8 +76,8 @@ class InterceptResendLog:
     qubit_index: int
     true_basis: str
     true_eigen: int
-    eve_guessed_basis: str
-    eve_measured_eigen: int
+    esha_guessed_basis: str
+    esha_measured_eigen: int
     basis_guessed_correctly: bool
     intercepted: bool
 
@@ -90,10 +90,10 @@ def intercept_resend_attack(key_material: SingleBitKeyMaterial, rng: np.random.G
     key_material (i.e. call this after distribute_public_key, mirroring
     the convention detection/baseline.py uses for applying channel
     noise post-distribution). Mutates each intercepted qubit's
-    `bob_state` in place, replacing Alice's honestly-teleported state
-    with Eve's guessed-basis resend.
+    `bharat_state` in place, replacing Aditi's honestly-teleported state
+    with Esha's guessed-basis resend.
 
-    `intercept_prob` lets Eve intercept only a fraction of qubits (a
+    `intercept_prob` lets Esha intercept only a fraction of qubits (a
     partial eavesdropper is harder to detect but leaks less information
     to her -- useful for Phase 6/7 sensitivity analysis of the
     detector's power at different attack intensities). Defaults to 1.0
@@ -101,10 +101,10 @@ def intercept_resend_attack(key_material: SingleBitKeyMaterial, rng: np.random.G
     case and the natural first attack to validate the detector against.
 
     NOTE: this deliberately requires the true (basis, eigen) fields on
-    each KeyQubit to record what Eve's measurement extracted and how it
+    each KeyQubit to record what Esha's measurement extracted and how it
     compares to ground truth (InterceptResendLog), for diagnostics only
-    -- Eve's own ATTACK LOGIC never reads kq.basis / kq.eigen (that would
-    be cheating: Eve has no access to Alice's private description, only
+    -- Esha's own ATTACK LOGIC never reads kq.basis / kq.eigen (that would
+    be cheating: Esha has no access to Aditi's private description, only
     to the physical qubit itself). Only the returned log uses them,
     purely for after-the-fact analysis.
 
@@ -118,35 +118,35 @@ def intercept_resend_attack(key_material: SingleBitKeyMaterial, rng: np.random.G
 
     for key_set_idx, key_set in enumerate((key_material.key_set_0, key_material.key_set_1)):
         for qubit_idx, kq in enumerate(key_set):
-            if kq.bob_state is None:
+            if kq.bharat_state is None:
                 raise ValueError(
-                    "Public key has not been distributed yet (bob_state is None). "
+                    "Public key has not been distributed yet (bharat_state is None). "
                     "Call distribute_public_key before intercept_resend_attack."
                 )
 
             if rng.random() >= intercept_prob:
                 continue  # this qubit passes through unintercepted
 
-            # Eve has NO access to kq.basis / kq.eigen here -- only to the
+            # Esha has NO access to kq.basis / kq.eigen here -- only to the
             # physical state she intercepted.
-            eve_guessed_basis = bases_pool[rng.integers(0, len(bases_pool))]
-            eve_measured_eigen, _ = measure_qubit_in_basis(
-                kq.bob_state.copy(), target=0, n_qubits=1,
-                basis=eve_guessed_basis, rng=rng
+            esha_guessed_basis = bases_pool[rng.integers(0, len(bases_pool))]
+            esha_measured_eigen, _ = measure_qubit_in_basis(
+                kq.bharat_state.copy(), target=0, n_qubits=1,
+                basis=esha_guessed_basis, rng=rng
             )
 
-            # Resend: a freshly prepared eigenstate of Eve's guessed basis
-            # and measured eigenvalue, replacing what Bob will receive.
-            kq.bob_state = prepare_pauli_eigenstate(eve_guessed_basis, eve_measured_eigen)
+            # Resend: a freshly prepared eigenstate of Esha's guessed basis
+            # and measured eigenvalue, replacing what Bharat will receive.
+            kq.bharat_state = prepare_pauli_eigenstate(esha_guessed_basis, esha_measured_eigen)
 
             logs.append(InterceptResendLog(
                 key_set_index=key_set_idx,
                 qubit_index=qubit_idx,
                 true_basis=kq.basis,
                 true_eigen=kq.eigen,
-                eve_guessed_basis=eve_guessed_basis,
-                eve_measured_eigen=eve_measured_eigen,
-                basis_guessed_correctly=(eve_guessed_basis == kq.basis),
+                esha_guessed_basis=esha_guessed_basis,
+                esha_measured_eigen=esha_measured_eigen,
+                basis_guessed_correctly=(esha_guessed_basis == kq.basis),
                 intercepted=True,
             ))
 

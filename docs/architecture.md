@@ -55,8 +55,8 @@ qds_threat_detection/
 │   ├── forgery.py            Blind forger (no channel access, (1/2)^L
 │   │                         bound) and intercepting forger (physical
 │   │                         qubit access, succeeds with certainty).
-│   ├── impersonation.py      Mallory runs the entire honest protocol
-│   │                         herself under Alice's name -- no crypto
+│   ├── impersonation.py      Meera runs the entire honest protocol
+│   │                         herself under Aditi's name -- no crypto
 │   │                         broken, just no identity binding to break.
 │   └── replay.py             Naive signature resubmission, and the
 │                             one-time-key-reuse total-exposure exploit.
@@ -90,22 +90,22 @@ qds_threat_detection/
 
 ```
 generate_key_material(L)
-        │  Alice privately picks L random (basis, eigen) pairs
+        │  Aditi privately picks L random (basis, eigen) pairs
         │  for EACH of two key sets (key_set_0, key_set_1)
         ▼
 distribute_public_key(key_material)
-        │  Each of the 2L qubits is teleported to Bob, one fresh
+        │  Each of the 2L qubits is teleported to Bharat, one fresh
         │  Bell pair per qubit (core/teleportation.py + entanglement.py)
-        │  Bob ends up holding 2L qubits with NO idea what basis/eigen
+        │  Bharat ends up holding 2L qubits with NO idea what basis/eigen
         │  any of them represent -- this is the "quantum public key"
         ▼
 sign_bit(key_material, message_bit)
-        │  Alice discloses the FULL (basis, eigen) description of
+        │  Aditi discloses the FULL (basis, eigen) description of
         │  key_set_{message_bit} ONLY -- total transparency of one
         │  whole key set, nothing more, nothing less
         ▼
 verify_bit(key_material, signature, mismatch_threshold)
-        │  Bob measures his stored qubits (for the disclosed key set)
+        │  Bharat measures his stored qubits (for the disclosed key set)
         │  each in its disclosed basis, compares to the disclosed
         │  eigenvalue, counts mismatches, accepts iff
         │  mismatch_count <= mismatch_threshold
@@ -113,7 +113,7 @@ verify_bit(key_material, signature, mismatch_threshold)
      ACCEPT / REJECT
 ```
 
-`detection/` sits entirely on the Bob side of this: it calibrates what
+`detection/` sits entirely on the Bharat side of this: it calibrates what
 `mismatch_threshold` should be (Phase 4), given that real channel noise
 means honest runs no longer produce exactly 0 mismatches. `attacks/`
 intervenes at different points in this same pipeline -- intercept_resend
@@ -139,7 +139,7 @@ entirely; replay/key-reuse operates one level up, on the
 - **Attacks call the real honest-path functions where possible.**
   attacks/impersonation.py and attacks/replay.py's key_reuse_attack
   deliberately call generate_key_material / distribute_public_key /
-  sign_bit -- the same functions Alice uses -- rather than a parallel
+  sign_bit -- the same functions Aditi uses -- rather than a parallel
   implementation. This is a design choice, not laziness: it makes the
   point that these two attacks require no cleverness or protocol
   violation at all, just a missing assumption (identity binding,

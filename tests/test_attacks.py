@@ -36,7 +36,7 @@ def check(name, condition):
 
 # ---------------------------------------------------------------------------
 # 1. Intercept-resend: sanity on a single qubit, many trials, tallied by
-#    whether Eve guessed the basis correctly -- confirms the two-branch
+#    whether Esha guessed the basis correctly -- confirms the two-branch
 #    analysis in the module docstring, not just the aggregate number.
 # ---------------------------------------------------------------------------
 N1 = 30000
@@ -50,7 +50,7 @@ for _ in range(N1):
     distribute_public_key(km, rng)
     logs = intercept_resend_attack(km, rng, intercept_prob=1.0)
     log = logs[0]  # key_set_0's single qubit
-    sig = sign_bit(km, message_bit=0)  # honest disclosure of Alice's TRUE description
+    sig = sign_bit(km, message_bit=0)  # honest disclosure of Aditi's TRUE description
     result = verify_bit(km, sig, rng, mismatch_threshold=0)
     mismatched = result.mismatch_count == 1
     if log.basis_guessed_correctly:
@@ -64,7 +64,7 @@ same_basis_rate = same_basis_mismatches / same_basis_count
 diff_basis_rate = diff_basis_mismatches / diff_basis_count
 overall_rate = (same_basis_mismatches + diff_basis_mismatches) / N1
 
-check(f"Eve guesses basis correctly ~1/3 of the time (got {same_basis_count / N1:.3f})",
+check(f"Esha guesses basis correctly ~1/3 of the time (got {same_basis_count / N1:.3f})",
       abs(same_basis_count / N1 - 1 / 3) < 0.02)
 check(f"Same-basis interception introduces ~0 mismatch (got {same_basis_rate:.4f})",
       same_basis_rate < 0.02)
@@ -207,8 +207,8 @@ except ValueError:
     check("intercepting_forgery_attempt raises if public key was never distributed", True)
 
 # ---------------------------------------------------------------------------
-# 7. Impersonation: Mallory runs the entire honest protocol herself and
-#    presents the result as Alice's. Should be accepted with certainty,
+# 7. Impersonation: Meera runs the entire honest protocol herself and
+#    presents the result as Aditi's. Should be accepted with certainty,
 #    with ZERO mismatches (it's an honest run, just from the wrong
 #    identity) -- no amount of L or threshold tuning matters here.
 # ---------------------------------------------------------------------------
@@ -285,9 +285,9 @@ check("Key-reuse exposure reports itself as fully exposed",
 # fields exactly, which an honest disclosure necessarily reveals.
 true_key_set_0 = [(kq.basis, kq.eigen) for kq in km_reuse.key_set_0]
 true_key_set_1 = [(kq.basis, kq.eigen) for kq in km_reuse.key_set_1]
-check("Exposed key_set_0 descriptions exactly match Alice's true private key_set_0",
+check("Exposed key_set_0 descriptions exactly match Aditi's true private key_set_0",
       exposure.key_set_0_descriptions == true_key_set_0)
-check("Exposed key_set_1 descriptions exactly match Alice's true private key_set_1",
+check("Exposed key_set_1 descriptions exactly match Aditi's true private key_set_1",
       exposure.key_set_1_descriptions == true_key_set_1)
 
 # Both captured signatures should themselves have been honestly valid at

@@ -17,7 +17,7 @@ precise about which, because "detection rate" means something different
 in each case:
 
   - intercept_resend: DOES disturb the channel (~1/3 QBER at full
-    interception), for every trial, win or lose from Eve's perspective.
+    interception), for every trial, win or lose from Esha's perspective.
     "Detection rate" here means what it normally means: the fraction of
     ongoing attacks correctly flagged. This is the one case where the
     detector is doing real security work.
@@ -81,12 +81,12 @@ def run_intercept_resend_trial(
     """
     Runs one full honest-protocol-plus-attack cycle: fresh key material,
     distribution, intercept-resend attack at the given intensity, then
-    HONEST signing (Alice truthfully discloses her real key set -- the
-    attack only touched the channel, not Alice's disclosure) and
-    then applies the configured ordinary depolarizing channel to Bob's
+    HONEST signing (Aditi truthfully discloses her real key set -- the
+    attack only touched the channel, not Aditi's disclosure) and
+    then applies the configured ordinary depolarizing channel to Bharat's
     disclosed-key-set qubits before verification. This matches
     detection.baseline.run_honest_trial(): the channel acts on the
-    post-distribution state Bob holds, after Eve's resend in an attacked
+    post-distribution state Bharat holds, after Esha's resend in an attacked
     trial, rather than being added artificially to the final mismatch
     count. Verification uses mismatch_threshold=0 to observe the raw
     (uncalibrated) mismatch count this attack intensity produces.
@@ -96,8 +96,8 @@ def run_intercept_resend_trial(
     intercept_resend_attack(km, rng, intercept_prob=intercept_prob)
     sig = sign_bit(km, message_bit=0)
     for kq in km.key_set_0:
-        kq.bob_state = apply_depolarizing_noise(
-            kq.bob_state, channel_noise_p, target=0, n_qubits=1, rng=rng
+        kq.bharat_state = apply_depolarizing_noise(
+            kq.bharat_state, channel_noise_p, target=0, n_qubits=1, rng=rng
         )
     result = verify_bit(km, sig, rng, mismatch_threshold=0)
     return result.mismatch_count

@@ -20,12 +20,12 @@ def run():
         assert not second.consume_authorization("a1")
         key = secrets.token_bytes(32)
         rng = np.random.default_rng(4)
-        session = SecureSession.create("alice", "bob", 4, rng, key)
-        verifier1 = SecureVerifier("bob", {"alice": key}, state_store=first)
+        session = SecureSession.create("aditi", "bharat", 4, rng, key)
+        verifier1 = SecureVerifier("bharat", {"aditi": key}, state_store=first)
         verifier1.register_distribution(session)
         signature = session.sign(0, "state")
         assert verifier1.verify(signature, "state", rng).accepted
-        verifier2 = SecureVerifier("bob", {"alice": key}, state_store=second)
+        verifier2 = SecureVerifier("bharat", {"aditi": key}, state_store=second)
         verifier2.register_distribution(session)
         assert not verifier2.verify(signature, "state", rng).accepted
 

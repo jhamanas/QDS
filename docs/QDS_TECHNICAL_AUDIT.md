@@ -22,7 +22,7 @@ Most important established findings:
 - **VERIFIED:** Ideal X/Y/Z intercept-resend disturbance is `1/3` for this exact idealized attack model.
 - **CONTRADICTED:** The documentation claim that the implemented Pauli noise has a maximum mismatch rate near `1/3` is false. The actual mismatch probability is `2p/3`, hence `2/3` at `p=1`.
 - **CRITICAL / CONTRADICTED:** The secure-wrapper SHA-256 "commitments" are enumerable: each secret `(basis, eigen)` has only six possible values. This is a low-entropy enumeration failure, not a SHA-256 break.
-- **HIGH:** `verify_bit()` measures `bob_state.copy()` and discards the collapsed state; repeated verification does not model quantum-state consumption.
+- **HIGH:** `verify_bit()` measures `bharat_state.copy()` and discards the collapsed state; repeated verification does not model quantum-state consumption.
 - **HIGH:** Detection sweeps calibrate with `channel_noise_p` but do not apply that noise in attack trials. Reported attack detection at `p=0.03` is therefore a methodology mismatch.
 - **UNSUPPORTED:** The legacy and secure-wrapper models do not establish a recognized complete QDS construction, information-theoretic QDS security, public verification, transferability, repudiation resistance, or non-repudiation.
 - **UNVERIFIED:** Tests, empirical figures, and timing benchmarks could not be rerun because this environment has no runnable Python interpreter.
@@ -65,12 +65,12 @@ dashboard.html -> /api/run -> scenario_runner.py
 1. `generate_key_material(L, rng)` creates two independent sets of `L` pairs: `basis in {X,Y,Z}`, `eigen in {0,1}`.
 2. `distribute_public_key()` prepares each corresponding Pauli eigenstate and calls `teleport_qubit()`.
 3. `sign_bit()` discloses all descriptions in the set selected by one message bit.
-4. `verify_bit()` measures Bob's stored corresponding state in each **disclosed** basis and accepts when mismatch count is at most a threshold.
+4. `verify_bit()` measures Bharat's stored corresponding state in each **disclosed** basis and accepts when mismatch count is at most a threshold.
 5. The detector calibrates a threshold from sampled honest mismatch counts.
 6. Attack/evaluation modules operate on this same model.
 7. Dashboard scenarios use the separate `SecureSession` / `SecureVerifier` wrapper.
 
-**Model limitation:** Alice’s secret fields and Bob’s `bob_state` share `KeyQubit` objects in one process. The simulation intentionally models separation by convention; it is not an access-control boundary or real distributed state ownership.
+**Model limitation:** Aditi’s secret fields and Bharat’s `bharat_state` share `KeyQubit` objects in one process. The simulation intentionally models separation by convention; it is not an access-control boundary or real distributed state ownership.
 
 # 3. Technology and Concept Inventory
 
@@ -140,11 +140,11 @@ The legacy model at `core/qds_protocol.py` is a one-bit, one-recipient disclosur
 
 ## Intercept-resend
 
-The exact implementation in `attacks/intercept_resend.py` selects Eve’s basis uniformly from X/Y/Z, measures, and resends the corresponding eigenstate. Under the model:
+The exact implementation in `attacks/intercept_resend.py` selects Esha’s basis uniformly from X/Y/Z, measures, and resends the corresponding eigenstate. Under the model:
 
 `P(wrong basis) = 2/3`, `P(mismatch | wrong basis) = 1/2`, therefore `P(mismatch) = 1/3`.
 
-**Verdict: VERIFIED** for independently prepared ideal Pauli eigenstates, uniformly random bases, one Eve measurement/resend, and no simultaneous ordinary noise or side channels. It is not a universal QDS/QKD result.
+**Verdict: VERIFIED** for independently prepared ideal Pauli eigenstates, uniformly random bases, one Esha measurement/resend, and no simultaneous ordinary noise or side channels. It is not a universal QDS/QKD result.
 
 ## Depolarizing noise
 
@@ -167,7 +167,7 @@ At `p=1`, mismatch is `2/3`, not `1/3`. Equivalently:
 
 | Claim | Source and relevant location | What the source establishes | Scope of validation |
 |---|---|---|---|
-| Standard teleportation architecture | Bennett, Brassard, Crépeau, Jozsa, Peres & Wootters, “Teleporting an unknown quantum state via dual classical and Einstein–Podolsky–Rosen channels,” *PRL* 70, 1895–1899 (1993), DOI [10.1103/PhysRevLett.70.1895](https://doi.org/10.1103/PhysRevLett.70.1895), abstract and pp. 1895–1899. | EPR sharing, Alice joint measurement/classical result, and Bob conditional reconstruction. | Underlying theory; supports default teleportation design, not repository security. |
+| Standard teleportation architecture | Bennett, Brassard, Crépeau, Jozsa, Peres & Wootters, “Teleporting an unknown quantum state via dual classical and Einstein–Podolsky–Rosen channels,” *PRL* 70, 1895–1899 (1993), DOI [10.1103/PhysRevLett.70.1895](https://doi.org/10.1103/PhysRevLett.70.1895), abstract and pp. 1895–1899. | EPR sharing, Aditi joint measurement/classical result, and Bharat conditional reconstruction. | Underlying theory; supports default teleportation design, not repository security. |
 | QDS requirements and quantum public keys | Daniel Gottesman & Isaac Chuang, “Quantum Digital Signatures” (2001), [arXiv:quant-ph/0105032](https://arxiv.org/abs/quant-ph/0105032), abstract and §§1–2. | Multiple recipients, quantum public keys known exactly only to signer, limited copies, secure distribution discussion. | Contradicts any inference that the repository alone is a complete QDS construction. |
 | QDS security goals | D. J. Wallden, V. Dunjko, A. Kent & E. Andersson, “Quantum digital signatures with quantum-key-distribution components,” *PRA* 91, 042304 (2015), DOI [10.1103/PhysRevA.91.042304](https://doi.org/10.1103/PhysRevA.91.042304). | Authenticity, transferability, and security against forgery are QDS concerns. | Underlying QDS criteria only; does not validate repository code. |
 | No-cloning | W. K. Wootters & W. H. Zurek, “A single quantum cannot be cloned,” *Nature* 299, 802–803 (1982), DOI [10.1038/299802a0](https://doi.org/10.1038/299802a0). | Unknown quantum states cannot be universally cloned. | Supports high-level attack motivation, not the repository protocol/security proof. |
@@ -185,9 +185,9 @@ No source above validates the repository implementation merely because it explai
 | Reported result | What is measured / expected | Verdict | Evidence boundary |
 |---|---|---|---|
 | Teleportation fidelity 1 | Pure-state overlap after default ideal circuit. | **CONSISTENT WITH THEORY** | Algebra/code support it; not rerun here. |
-| Intercept-resend mismatch about `1/3` | Ideal three-basis Eve model. | **VALIDATED mathematically** | Runtime output remains unverified in this environment. |
+| Intercept-resend mismatch about `1/3` | Ideal three-basis Esha model. | **VALIDATED mathematically** | Runtime output remains unverified in this environment. |
 | Blind legacy forgery `(1/2)^L` at threshold zero | Attacker chooses random basis/eigen disclosure; verifier uses attacker-disclosed basis. | **PARTIALLY VERIFIED** | Valid only for legacy toy verifier/threat game. |
-| Intercepting legacy forger success 1 | Attacker collapses Bob’s modeled state and honestly reports outcome/basis. | **VALIDATED for simulator model** | Demonstrates insecurity, not QDS strength. |
+| Intercepting legacy forger success 1 | Attacker collapses Bharat’s modeled state and honestly reports outcome/basis. | **VALIDATED for simulator model** | Demonstrates insecurity, not QDS strength. |
 | Detection rates at `p=0.03` | Threshold calibrated with noise; attacks should be evaluated under same noise. | **CONTRADICTED as labeled methodology** | Attack trials omit `apply_depolarizing_noise`. |
 | Threshold around 8 | Sampled `ceil(mu + max(6 sigma,1))`. | **PLAUSIBLE BUT INSUFFICIENTLY VALIDATED** | No independent rerun; heuristic has no specified alpha. |
 | Recommended `L≈78–81` | Approximate threshold/forgery search. | **PLAUSIBLE BUT INSUFFICIENTLY VALIDATED** | Depends on legacy model, sampled rate, heuristic and approximation. |
@@ -219,7 +219,7 @@ HMAC authentication of the public record at `core/secure_protocol.py:85` is vali
 
 ## State consumption
 
-`verify_bit()` at `core/qds_protocol.py:219` measures `key_qubit.bob_state.copy()` and discards the post-measurement state. The primitive measurement itself is correct, but verification does not update stored state.
+`verify_bit()` at `core/qds_protocol.py:219` measures `key_qubit.bharat_state.copy()` and discards the post-measurement state. The primitive measurement itself is correct, but verification does not update stored state.
 
 **Theory:** physical measurement consumes/collapses the actual state.  
 **Simulator behavior:** cloned classical array is measured; original vector survives.  
@@ -238,7 +238,7 @@ HMAC authentication of the public record at `core/secure_protocol.py:85` is vali
 | Replay resistance | `SecureVerifier.verify()` | Durable shared verifier state. | **PARTIALLY VERIFIED** | High |
 | One-time signing | `SecureSession.sign()` | Same live session object. | **PARTIALLY VERIFIED** | High |
 | Key secrecy | Public commitments. | Hiding commitment. | **CONTRADICTED** | High |
-| Quantum-state security | `bob_state.copy()` | Physical destructive measurements/bounded copies. | **UNSUPPORTED** | High |
+| Quantum-state security | `bharat_state.copy()` | Physical destructive measurements/bounded copies. | **UNSUPPORTED** | High |
 
 # 8. Alternative Technology Analysis
 

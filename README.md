@@ -66,7 +66,7 @@ data-flow diagram.
 
 `core/secure_protocol.py` adds the deployment controls deliberately absent
 from the original attack-study model: authenticated distribution records,
-commitments to Alice's pre-distributed Pauli descriptions, payload binding,
+commitments to Aditi's pre-distributed Pauli descriptions, payload binding,
 replay tracking, and strict one-time session keys. The HMAC-authenticated
 record is a classical stand-in for the authenticated channel a deployable QDS
 system requires; it is not a claim of information-theoretic authentication.
@@ -177,8 +177,8 @@ Cross-origin browser access is disabled by default; configure an exact
 
 - The original blind-forgery bound was `(1/6)^L`; the corrected bound
   is `(1/2)^L` — verification doesn't check a disclosure against
-  Alice's true secret basis, only against Bob's physical qubit.
-- An attacker with physical access to Bob's stored qubits forges with
+  Aditi's true secret basis, only against Bharat's physical qubit.
+- An attacker with physical access to Bharat's stored qubits forges with
   probability 1.0, independent of L.
 - Impersonation and replay/key-reuse are both total, L-independent
   breaks requiring deployment-level mitigations outside this codebase's

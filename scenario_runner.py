@@ -13,24 +13,24 @@ def run_scenario(*, attack="honest", intensity=1.0, length=64, noise=0.0, thresh
     if attack not in ATTACKS: raise ValueError(f"Unknown attack: {attack}")
     if not 0 <= intensity <= 1 or not 0 <= noise <= 1 or threshold < 0 or length < 1: raise ValueError("intensity/noise must be in [0, 1]; threshold >= 0; length >= 1")
     if noise_model not in ("depolarizing", "bit-flip", "phase-flip"): raise ValueError("Unknown noise model")
-    rng=np.random.default_rng(seed); key=secrets.token_bytes(32); verifier=SecureVerifier("bob", {"alice":key}, state_store=state_store); session=SecureSession.create("alice","bob",length,rng,key); verifier.register_distribution(session)
+    rng=np.random.default_rng(seed); key=secrets.token_bytes(32); verifier=SecureVerifier("bharat", {"aditi":key}, state_store=state_store); session=SecureSession.create("aditi","bharat",length,rng,key); verifier.register_distribution(session)
     data={"attack":attack,"length":length,"intensity":intensity,"noise":noise,"noise_model":noise_model,"threshold":threshold,"message_bit":message_bit}
     if attack=="impersonation":
-        mallory=SecureSession.create("mallory","bob",length,rng,secrets.token_bytes(32)); result=verifier.verify(mallory.sign(message_bit,payload),payload,rng,threshold)
+        meera=SecureSession.create("meera","bharat",length,rng,secrets.token_bytes(32)); result=verifier.verify(meera.sign(message_bit,payload),payload,rng,threshold)
     else:
         if attack=="intercept-resend": data["qubits_intercepted"]=len(intercept_resend_attack(session.key_material,rng,intensity))
         if noise:
             for ks in (session.key_material.key_set_0,session.key_material.key_set_1):
-                for q in ks: q.bob_state=apply_noise(q.bob_state,noise,0,1,rng,noise_model)
+                for q in ks: q.bharat_state=apply_noise(q.bharat_state,noise,0,1,rng,noise_model)
         sig=session.sign(message_bit,payload)
         if attack in ("blind-forgery","intercepting-forgery"):
             legacy=blind_forgery_attempt(length,message_bit,rng) if attack=="blind-forgery" else intercepting_forgery_attempt(session.key_material,message_bit,rng)
             # Intensity is the fraction of key descriptions controlled by the
-            # attacker; untouched entries retain Alice's honest disclosure.
+            # attacker; untouched entries retain Aditi's honest disclosure.
             controlled = int(round(length * intensity))
             descriptions = list(sig.disclosed_descriptions)
             descriptions[:controlled] = legacy.disclosed_descriptions[:controlled]
-            sig=SecureSignature(sig.session_id,sig.signature_id,"alice","bob",message_bit,sig.payload_digest,tuple(descriptions),sig.opening_nonces,sig.authorization)
+            sig=SecureSignature(sig.session_id,sig.signature_id,"aditi","bharat",message_bit,sig.payload_digest,tuple(descriptions),sig.opening_nonces,sig.authorization)
         if attack == "memory-tamper":
             result = verifier.verify(sig, payload, rng, threshold, memory_integrity_ok=False)
         elif attack == "unauthorized-verification":

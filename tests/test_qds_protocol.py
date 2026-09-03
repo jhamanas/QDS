@@ -44,8 +44,8 @@ all_bases_valid = all(
 )
 check("All key qubits have valid (basis, eigen) descriptions", all_bases_valid)
 
-check("bob_state is None before distribution",
-      all(kq.bob_state is None for kq in key_material.key_set_0))
+check("bharat_state is None before distribution",
+      all(kq.bharat_state is None for kq in key_material.key_set_0))
 
 # ---------------------------------------------------------------------------
 # 2. Public key distribution (teleportation) delivers perfect fidelity
@@ -53,11 +53,11 @@ check("bob_state is None before distribution",
 distribute_public_key(key_material, rng)
 
 all_have_states = all(
-    kq.bob_state is not None
+    kq.bharat_state is not None
     for key_set in (key_material.key_set_0, key_material.key_set_1)
     for kq in key_set
 )
-check("All key qubits have bob_state after distribution", all_have_states)
+check("All key qubits have bharat_state after distribution", all_have_states)
 
 fidelities = [
     kq.teleport_fidelity
@@ -125,16 +125,16 @@ check(f"All {n_trials} independent honest sign/verify trials are deterministic "
 lifecycle_km = generate_key_material(1, rng, bases_pool=("Z",))
 distribute_public_key(lifecycle_km, rng)
 lifecycle_qubit = lifecycle_km.key_set_0[0]
-pre_measurement_state = lifecycle_qubit.bob_state.copy()
+pre_measurement_state = lifecycle_qubit.bharat_state.copy()
 first_lifecycle_signature = SignatureBit(message_bit=0, disclosed_descriptions=[("X", 0)])
 first_lifecycle_result = verify_bit(lifecycle_km, first_lifecycle_signature, rng)
 first_outcome = first_lifecycle_result.per_qubit_outcomes[0][0]
 expected_collapsed_state = prepare_pauli_eigenstate("X", first_outcome)
 
 check("verification persists the observed X-basis collapsed state",
-      state_fidelity(lifecycle_qubit.bob_state, expected_collapsed_state) > 1 - 1e-8)
+      state_fidelity(lifecycle_qubit.bharat_state, expected_collapsed_state) > 1 - 1e-8)
 check("verification changes the stored state after an incompatible-basis measurement",
-      state_fidelity(lifecycle_qubit.bob_state, pre_measurement_state) < 1 - 1e-8)
+      state_fidelity(lifecycle_qubit.bharat_state, pre_measurement_state) < 1 - 1e-8)
 
 second_lifecycle_signature = SignatureBit(
     message_bit=0, disclosed_descriptions=[("X", first_outcome)]

@@ -16,19 +16,19 @@ nine phases (see `docs/architecture.md` for the module-by-module map),
 The original design assumed a blind forger succeeds with probability
 1/6 per qubit. Building the actual forgery simulator (Phase 5) revealed
 this was wrong: the real per-qubit probability is **1/2**, because
-`verify_bit` checks a disclosure's internal consistency against Bob's
-physical qubit, not against Alice's true secret basis directly — a
+`verify_bit` checks a disclosure's internal consistency against Bharat's
+physical qubit, not against Aditi's true secret basis directly — a
 wrong basis guess isn't an automatic failure, since a mismatched-basis
 measurement is still 50/50. A second, more serious result followed from
 the same reasoning error appearing in my own first draft of the
 stronger "intercepting forger" simulator: an attacker with physical
-access to Bob's stored qubits forges with **probability 1.0,
+access to Bharat's stored qubits forges with **probability 1.0,
 independent of L** — verification always measures in the *disclosed*
 basis, so measuring once and reporting honestly always passes.
 
 **2. Two more total breaks, found completing Phase 5.**
 Impersonation (an attacker running the entire honest protocol under
-Alice's name, since nothing binds the distribution session to her
+Aditi's name, since nothing binds the distribution session to her
 identity) and replay/key-reuse (no freshness check exists, and
 Lamport-style one-time-key violation exposes 100% of the private key)
 are both certain, L-independent breaks — matching a warning already
@@ -73,7 +73,7 @@ much to trust any single analytic claim in this codebase:
   `verify_bit` output.
 - My own first draft of the intercepting-forger docstring made the
   *same category of reasoning error* the original 1/6 bug did (assuming
-  verification checks against Alice's secret basis), and was itself
+  verification checks against Aditi's secret basis), and was itself
   caught the same way — empirical trial, not re-reading the derivation
   more carefully.
 - `evaluation/validate_detection.py`'s first version claimed blind

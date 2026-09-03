@@ -10,8 +10,8 @@ from core.secure_protocol import SecureSession, SecureVerifier
 def run():
     key = secrets.token_bytes(32)
     rng = np.random.default_rng(2)
-    session = SecureSession.create("alice", "bob", 4, rng, key)
-    verifier = SecureVerifier("bob", {"alice": key})
+    session = SecureSession.create("aditi", "bharat", 4, rng, key)
+    verifier = SecureVerifier("bharat", {"aditi": key})
     verifier.register_distribution(session)
     result = verifier.verify(session.sign(0, "x"), "x", rng, memory_integrity_ok=False)
     assert not result.accepted and "aborted" in result.reason

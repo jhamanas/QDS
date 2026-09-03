@@ -16,7 +16,7 @@ This module implements that exploit directly. The QDS scheme here is a
 Lamport-style ONE-TIME signature: each SingleBitKeyMaterial object may
 safely sign exactly one message bit. Signing discloses the FULL
 (basis, eigen) description of one entire key set -- that is not a
-partial leak, it is total transparency of everything Bob needs to
+partial leak, it is total transparency of everything Bharat needs to
 verify that bit. If the SAME key_material is (incorrectly) reused to
 sign a SECOND message bit, an observer who captures both signatures now
 holds the complete, exact private description of BOTH key_set_0 and
@@ -30,13 +30,13 @@ Two distinct exploits are modeled:
      same pair again later. verify_bit has no freshness/nonce check, so
      it is accepted identically every time it is resubmitted against
      the same key_material. This doesn't require any key reuse by
-     Alice -- it exploits the total absence of a replay-protection
+     Aditi -- it exploits the total absence of a replay-protection
      mechanism in the verification logic itself.
 
   2. `key_reuse_attack`: the scenario the Phase 3 docstring specifically
-     warned about -- Alice (or a system built on this protocol) reuses
+     warned about -- Aditi (or a system built on this protocol) reuses
      the same key_material to sign BOTH possible message bits. The
-     resulting pair of captured signatures gives an attacker Alice's
+     resulting pair of captured signatures gives an attacker Aditi's
      ENTIRE private key material for that session: every (basis, eigen)
      for every qubit in both key sets. This is a complete break, not a
      probabilistic one -- there is no forgery probability to compute
@@ -78,7 +78,7 @@ def naive_replay(key_material: SingleBitKeyMaterial, captured_signature: Signatu
 @dataclass
 class KeyReuseExposure:
     """Everything an attacker learns by observing two signatures over
-    the same (mis-used) key_material -- Alice's ENTIRE private
+    the same (mis-used) key_material -- Aditi's ENTIRE private
     description for both key sets. There is no residual secrecy left to
     quantify probabilistically."""
     key_set_0_descriptions: list[tuple[str, int]]
@@ -104,7 +104,7 @@ def key_reuse_attack(key_material: SingleBitKeyMaterial, rng: np.random.Generato
     system that signs multiple messages per key_material to save on key
     generation cost).
 
-    Calls the SAME honest core.qds_protocol.sign_bit function Alice
+    Calls the SAME honest core.qds_protocol.sign_bit function Aditi
     would use, twice, against the same key_material -- deliberately, to
     show this requires no attacker cleverness at all. An attacker who
     merely observes both resulting signatures (e.g. on a public

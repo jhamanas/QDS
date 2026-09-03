@@ -14,8 +14,8 @@ from core.secure_protocol import SecureSession, SecureVerifier, SecureSignature
 def setup():
     key = secrets.token_bytes(32)
     rng = np.random.default_rng(21)
-    session = SecureSession.create("alice", "bob", 12, rng, key)
-    verifier = SecureVerifier("bob", {"alice": key})
+    session = SecureSession.create("aditi", "bharat", 12, rng, key)
+    verifier = SecureVerifier("bharat", {"aditi": key})
     verifier.register_distribution(session)
     return key, rng, session, verifier
 
@@ -29,17 +29,17 @@ def run():
     key, rng, session, verifier = setup()
     signature = session.sign(0, "payload")
     assert verifier.verify(replace(signature, authorization=None), "payload", rng).accepted is False
-    altered = replace(signature, authorization=replace(signature.authorization, verifier_id="eve"))
+    altered = replace(signature, authorization=replace(signature.authorization, verifier_id="esha"))
     assert verifier.verify(altered, "payload", rng).accepted is False
 
     key, rng, session, verifier = setup()
-    expired = session.issue_authorization("bob", ttl_seconds=0.001)
+    expired = session.issue_authorization("bharat", ttl_seconds=0.001)
     time.sleep(0.01)
     signature = session.sign(0, "payload", expired)
     assert verifier.verify(signature, "payload", rng).accepted is False
 
     key, rng, session, verifier = setup()
-    authorization = session.issue_authorization("bob")
+    authorization = session.issue_authorization("bharat")
     first = session.sign(0, "payload", authorization)
     assert verifier.verify(first, "payload", rng).accepted
     second = replace(first, signature_id="second-signature")

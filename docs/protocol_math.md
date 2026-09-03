@@ -47,8 +47,8 @@ produces all four Bell states depending on `(b0, b1)`:
 | (1, 1) | `|Psi-> = (|01> - |10>)/sqrt(2)` |
 
 **Teleportation correction order.** The by-product operator left on
-Bob's qubit before correction is `X^{m_B} Z^{m_A}` applied to the
-original state, where `(m_A, m_B)` are Alice's two measurement outcomes.
+Bharat's qubit before correction is `X^{m_B} Z^{m_A}` applied to the
+original state, where `(m_A, m_B)` are Aditi's two measurement outcomes.
 Undoing a product of two non-commuting self-inverse operators requires
 applying their inverses in REVERSE order: the correct correction is
 `Z^{m_A} X^{m_B}` — apply the X correction first, then Z. This was
@@ -93,16 +93,16 @@ Equivalently, in the alternative parameterization
 
 ## 5. Intercept-resend eavesdropping (`attacks/intercept_resend.py`)
 
-Eve measures each intercepted qubit in a basis guessed uniformly at
+Esha measures each intercepted qubit in a basis guessed uniformly at
 random from `{X, Y, Z}`, then resends a freshly prepared eigenstate of
 her guessed basis with her measured eigenvalue.
 
-- Eve's guessed basis matches the true basis (prob 1/3): her measurement
+- Esha's guessed basis matches the true basis (prob 1/3): her measurement
   is non-disturbing (she measured a true eigenstate in its own basis),
-  and Bob's later measurement in the same (true, disclosed) basis
+  and Bharat's later measurement in the same (true, disclosed) basis
   reproduces the true eigenvalue with certainty → **no mismatch**.
-- Eve's guessed basis differs (prob 2/3): her resent state is a definite
-  eigenstate of the WRONG basis, so Bob's measurement in the true basis
+- Esha's guessed basis differs (prob 2/3): her resent state is a definite
+  eigenstate of the WRONG basis, so Bharat's measurement in the true basis
   is exactly 50/50 → **mismatch with probability 1/2**.
 
 ```
@@ -118,9 +118,9 @@ analytic value of exactly 1/3.
 ### 6.1 Blind forger (no channel access, no private key)
 
 **This corrects a bug in the original Phase 3 docstring, which claimed
-1/6.** `verify_bit()` measures Bob's REAL qubit in whatever basis the
+1/6.** `verify_bit()` measures Bharat's REAL qubit in whatever basis the
 forger's disclosure claims, and compares to whatever eigenvalue the
-disclosure claims — it never checks the disclosure against Alice's true
+disclosure claims — it never checks the disclosure against Aditi's true
 description directly. For one qubit:
 
 - Forger's guessed basis matches the true basis (prob 1/3): measurement
@@ -139,15 +139,15 @@ P(blind forgery succeeds, L qubits, threshold=0) = (1/2)^L
 Confirmed at 0.4991 over 200,000 single-qubit trials, and 0/4000 full
 forgeries at L=24 (`tests/test_attacks.py`).
 
-### 6.2 Intercepting forger (physical access to Bob's real qubits)
+### 6.2 Intercepting forger (physical access to Bharat's real qubits)
 
 **A second finding, also correcting an initial wrong draft** (which
 first assumed a 2/3 success rate, using the same flawed "checked
 against the true basis" reasoning the original Phase 3 bug used).
 `verify_bit()` always measures in the DISCLOSED basis — never
-independently against Alice's true secret basis. So once the
+independently against Aditi's true secret basis. So once the
 intercepting forger measures a qubit in ANY basis `B` and truthfully
-discloses `(B, her outcome)`, Bob's "verification" is a SECOND
+discloses `(B, her outcome)`, Bharat's "verification" is a SECOND
 measurement of the SAME already-collapsed qubit in that SAME basis `B`
 — and repeated measurement of an eigenstate in its own basis is
 deterministic.

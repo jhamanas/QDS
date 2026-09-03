@@ -18,23 +18,23 @@ def main() -> int:
     a = p.parse_args()
     if not 0 <= a.intensity <= 1 or not 0 <= a.noise <= 1 or a.threshold < 0:
         p.error("intensity/noise must be in [0, 1], and threshold must be non-negative")
-    rng = np.random.default_rng(a.seed); alice_key = secrets.token_bytes(32)
-    verifier = SecureVerifier("bob", {"alice": alice_key})
-    session = SecureSession.create("alice", "bob", a.length, rng, alice_key); verifier.register_distribution(session)
+    rng = np.random.default_rng(a.seed); aditi_key = secrets.token_bytes(32)
+    verifier = SecureVerifier("bharat", {"aditi": aditi_key})
+    session = SecureSession.create("aditi", "bharat", a.length, rng, aditi_key); verifier.register_distribution(session)
     details = {"attack": a.attack, "length": a.length, "intensity": a.intensity, "noise": a.noise}
     if a.attack == "impersonation":
-        mallory = SecureSession.create("mallory", "bob", a.length, rng, secrets.token_bytes(32))
-        result = verifier.verify(mallory.sign(a.message_bit, a.payload), a.payload, rng, a.threshold)
+        meera = SecureSession.create("meera", "bharat", a.length, rng, secrets.token_bytes(32))
+        result = verifier.verify(meera.sign(a.message_bit, a.payload), a.payload, rng, a.threshold)
     else:
         if a.attack == "intercept-resend": details["qubits_intercepted"] = len(intercept_resend_attack(session.key_material, rng, a.intensity))
         if a.noise:
             for key_set in (session.key_material.key_set_0, session.key_material.key_set_1):
-                for qubit in key_set: qubit.bob_state = apply_depolarizing_noise(qubit.bob_state, a.noise, 0, 1, rng)
+                for qubit in key_set: qubit.bharat_state = apply_depolarizing_noise(qubit.bharat_state, a.noise, 0, 1, rng)
         sig = session.sign(a.message_bit, a.payload)
         if a.attack in ("blind-forgery", "intercepting-forgery"):
             legacy = (blind_forgery_attempt(a.length, a.message_bit, rng) if a.attack == "blind-forgery" else intercepting_forgery_attempt(session.key_material, a.message_bit, rng))
-            sig = SecureSignature(sig.session_id, sig.signature_id, "alice", "bob", a.message_bit, sig.payload_digest, tuple(legacy.disclosed_descriptions), sig.opening_nonces)
-        target = (SecureVerifier("eve", {"alice": alice_key})
+            sig = SecureSignature(sig.session_id, sig.signature_id, "aditi", "bharat", a.message_bit, sig.payload_digest, tuple(legacy.disclosed_descriptions), sig.opening_nonces)
+        target = (SecureVerifier("esha", {"aditi": aditi_key})
                   if a.attack == "unauthorized-verification" else verifier)
         result = target.verify(sig, a.payload + "-tampered" if a.attack == "payload-tamper" else a.payload, rng, a.threshold)
         if a.attack == "replay": result = verifier.verify(sig, a.payload, rng, a.threshold)
