@@ -6,11 +6,13 @@ disturbance, attack simulators, and performance evaluation. It is not a
 production authentication service, a standardized QDS construction, a formal
 security proof, or an implementation tested on quantum hardware.
 
-**Start here:** `docs/final_report.md` for the project summary and
-`results/security_analysis.json` plus `results/reproducibility.json` for the
-latest machine-readable evaluation and its provenance. The older Markdown
-security report is retained as historical narrative, not a replacement for
-the reproducible result files.
+**Start here:** `docs/final_report.md` for the project summary,
+`docs/CANONICAL_MODULES.md` for the supported module map, and
+`docs/QDS_TECHNICAL_AUDIT.md` plus `docs/REMEDIATION_PLAN.md` for the security
+review and follow-up work. `results/security_analysis.json` and
+`results/reproducibility.json` contain the latest machine-readable evaluation
+and its provenance. The older Markdown security report is retained as
+historical narrative, not a replacement for the reproducible result files.
 
 ## Setup
 
@@ -22,25 +24,23 @@ Python 3.10+ (uses `X | None` union type syntax and `math.comb`).
 
 ## Running the tests
 
-Each phase has its own test file under `tests/`, meant to be run in
-order — later phases assume earlier ones pass:
+Run every tracked test script from the repository root. The commands below
+include the phase tests as well as regression coverage for secure sessions,
+state storage, memory tampering, noise models, metrics, unauthorized
+verification, and SOC/audit operations.
 
 ```bash
-python3 tests/test_primitives.py          # Phase 0
-python3 tests/test_entanglement.py        # Phase 1
-python3 tests/test_teleportation.py       # Phase 2
-python3 tests/test_qds_protocol.py        # Phase 3
-python3 tests/test_detector.py            # Phase 4
-python3 tests/test_attacks.py             # Phase 5
-python3 tests/test_validate_detection.py  # Phase 6
-python3 tests/test_security_analysis.py   # Phase 7
-python3 tests/test_performance_benchmark.py  # Phase 8
-python3 tests/test_secure_protocol.py         # Hardened session controls
+# PowerShell
+Get-ChildItem tests/test_*.py | ForEach-Object { python $_.FullName }
+
+# POSIX shell
+for test in tests/test_*.py; do python3 "$test"; done
 ```
 
-All run from the project root (each test file adjusts `sys.path`
-itself). Record the test output with the commit under review rather than
-relying on a historical pass count.
+Each script adjusts `sys.path` itself. Record test output with the commit under
+review rather than relying on a historical pass count. For the supported
+deterministic evaluation-regeneration command and its environment record, see
+`docs/reproducibility.md`.
 
 Note: `tests/test_attacks.py`, `test_validate_detection.py`,
 `test_security_analysis.py`, and `test_performance_benchmark.py` run
@@ -51,12 +51,15 @@ and can take from several seconds to a couple of minutes each.
 
 ```
 core/            Phases 0-3: gates, entanglement, teleportation, QDS protocol
+                 plus hardened session controls, noise models, and state storage
 detection/       Phase 4: statistical baseline, calibration, decision engine
-attacks/         Phase 5: intercept-resend, forgery, impersonation, replay
+attacks/         Attack helpers: intercept-resend, forgery, impersonation,
+                 replay, unauthorized verification, and memory tampering
 evaluation/      Phases 6-8: detection validation, security analysis, perf
-tests/           One test file per module (or per package for attacks/evaluation)
+tests/           Phase checks and feature-specific regression tests
 results/         Generated output data (JSON, CSV, MD) -- not code
-docs/            Architecture, protocol math, and final report
+docs/            Architecture, protocol math, reports, audit, remediation,
+                 and reproducibility guidance
 ```
 
 See `docs/architecture.md` for the full module-by-module breakdown and
@@ -77,10 +80,12 @@ Run a configurable scenario:
 python run_scenario.py --attack intercept-resend --intensity 0.5 --length 64 --noise 0.03 --threshold 8
 ```
 
-Available attacks: `honest`, `intercept-resend`, `blind-forgery`,
+The command-line runner supports `honest`, `intercept-resend`, `blind-forgery`,
 `intercepting-forgery`, `impersonation`, `replay`, `key-reuse`,
 `payload-tamper`, and `unauthorized-verification`. Run
-`python run_scenario.py --help` for parameters.
+`python run_scenario.py --help` for parameters. The dashboard and `/api/run`
+also expose `memory-tamper`, which demonstrates the fail-closed memory-integrity
+path.
 
 ### Click-and-slider dashboard
 
